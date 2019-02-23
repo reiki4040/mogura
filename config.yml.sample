@@ -1,0 +1,15 @@
+bastion_ssh_config:
+  name: bastion
+  host: bastion.example.com
+  port: 22
+  user: ec2-user
+  key_path: ~/.ssh/id_rsa
+tunnels:
+  - name: database
+    local_bind_port: localhost:3306
+    remote_host: database.example.com
+    remote_port: 3306
+  - name: elasticsearch
+    local_bind_port: localhost:9200
+    remote_host: elasticsearch.example.com
+    remote_port: 9200
