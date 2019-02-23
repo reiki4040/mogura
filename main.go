@@ -16,11 +16,13 @@ var (
 	hash      string
 	goversion string
 
-	showVer bool
+	showVer        bool
+	configFilePath string
 )
 
 func init() {
 	flag.BoolVar(&showVer, "v", false, "show version")
+	flag.StringVar(&configFilePath, "config", "./config.yml", "config file path. default: ./config.yml")
 
 	flag.Parse()
 }
@@ -36,21 +38,26 @@ func main() {
 	}
 
 	c := &Config{}
-	err := LoadFromYamlFile("./config.yml", c)
+	err := LoadFromYamlFile(configFilePath, c)
 	if err != nil {
 		log.Fatalf("can not load config file: %v", err)
 	}
 
 	for _, t := range c.Tunnel {
+		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
+		localHostPort := localport(t.LocalBindPort)
+		forwardingRemotePort := hostport(t.RemoteHost, t.RemotePort)
 		mogura := &mogura.Mogura{
 			Name:                 c.Bastion.Name + " -> " + t.Name,
-			BastionHostPort:      hostport(c.Bastion.Host, c.Bastion.Port),
+			BastionHostPort:      bastionHostPort,
 			Username:             c.Bastion.User,
 			KeyPath:              c.Bastion.KeyPath,
-			LocalBindPort:        localport(t.LocalBindPort),
-			ForwardingRemotePort: hostport(t.RemoteHost, t.RemotePort),
+			LocalBindPort:        localHostPort,
+			ForwardingRemotePort: forwardingRemotePort,
 		}
 
+		log.Printf("starting tunnel %s", mogura.Name)
+		log.Printf("%s -> %s -> %s", localHostPort, bastionHostPort, forwardingRemotePort)
 		errChan, err := mogura.Go()
 		if err != nil {
 			/*
@@ -67,6 +74,8 @@ func main() {
 				}
 			}()
 		}
+
+		log.Printf("started tunnel %s", mogura.Name)
 	}
 
 	// waiting Ctrl + C

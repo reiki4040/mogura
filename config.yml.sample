@@ -1,15 +1,12 @@
 bastion_ssh_config:
   name: bastion
-  host: bastion.example.com
-  port: 22
-  user: ec2-user
-  key_path: ~/.ssh/id_rsa
+  host: localhost
+  port: 2222
+  user: vagrant
+  key_path: .vagrant/machines/bastion/virtualbox/private_key
 tunnels:
-  - name: database
-    local_bind_port: localhost:3306
-    remote_host: database.example.com
-    remote_port: 3306
-  - name: elasticsearch
-    local_bind_port: localhost:9200
-    remote_host: elasticsearch.example.com
-    remote_port: 9200
+  - name: nginx
+    local_bind_port: 8080
+    remote_host: 192.168.50.6
+    remote_port: 80
+
