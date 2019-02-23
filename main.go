@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -8,7 +10,31 @@ import (
 	"github.com/reiki4040/mogura/mogura"
 )
 
+var (
+	// for version info
+	version   string
+	hash      string
+	goversion string
+
+	showVer bool
+)
+
+func init() {
+	flag.BoolVar(&showVer, "v", false, "show version")
+
+	flag.Parse()
+}
+
+func showVersion() {
+	fmt.Printf("%s (%s) %s\n", version, hash, goversion)
+}
+
 func main() {
+	if showVer {
+		showVersion()
+		os.Exit(0)
+	}
+
 	c := &Config{}
 	err := LoadFromYamlFile("./config.yml", c)
 	if err != nil {
