@@ -49,7 +49,7 @@ func main() {
 		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
 		localHostPort := localport(t.LocalBindPort)
 		forwardingRemotePort := hostport(t.RemoteName, t.RemotePort)
-		mogura := &mogura.Mogura{
+		moguraConfig := mogura.MoguraConfig{
 			Name:            c.Bastion.Name + " -> " + t.Name,
 			BastionHostPort: bastionHostPort,
 			Username:        c.Bastion.User,
@@ -62,9 +62,9 @@ func main() {
 			},
 		}
 
-		log.Printf("starting tunnel %s", mogura.Name)
+		log.Printf("starting tunnel %s", moguraConfig.Name)
 		log.Printf("%s -> %s -> %s", localHostPort, bastionHostPort, forwardingRemotePort)
-		errChan, err := mogura.Go()
+		mogura, err := mogura.GoMogura(moguraConfig)
 		if err != nil {
 			/*
 				TODO retry and error handling with other connection closing.
@@ -74,7 +74,7 @@ func main() {
 		} else {
 			// show transfer error
 			go func(t TunnelConfig) {
-				for tErr := range errChan {
+				for tErr := range mogura.ErrChan() {
 					/*
 					 TODO if too many got error then reconnection?
 					 use mogura.ConnectSSH(), mogura.ResolveRemote(), mogura.Listen()
@@ -86,7 +86,7 @@ func main() {
 
 		// set map for control
 		moguraMap[t.Name] = mogura
-		log.Printf("started tunnel %s", mogura.Name)
+		log.Printf("started tunnel %s", mogura.Config.Name)
 	}
 
 	// waiting Ctrl + C

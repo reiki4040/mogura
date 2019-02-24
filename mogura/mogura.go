@@ -8,29 +8,22 @@ import (
 	"net"
 )
 
-type Mogura struct {
+type MoguraConfig struct {
 	Name             string
 	BastionHostPort  string
 	Username         string
 	KeyPath          string
 	LocalBindPort    string
 	ForwardingTarget RemoteTarget
-
-	// internal
-	sshClientConn  *ssh.Client
-	localListener  net.Listener
-	detectedRemote string
-
-	doneChan chan struct{}
 }
 
-/* TODO
-modified structure to MoguraConfig -Go()-> Mogura(it has state and can not start again)
-currently structure user call Go() again and broken mogura...
-*/
 // error is ssh connection and local listener error.
 // error channel transfer flow error
-func (m *Mogura) Go() (<-chan error, error) {
+func GoMogura(c MoguraConfig) (*Mogura, error) {
+	m := &Mogura{
+		Config: c,
+	}
+
 	m.doneChan = make(chan struct{})
 	err := m.ConnectSSH()
 	if err != nil {
@@ -48,7 +41,7 @@ func (m *Mogura) Go() (<-chan error, error) {
 	}
 	log.Printf("remote: %s", m.detectedRemote)
 
-	errChan := make(chan error)
+	m.errChan = make(chan error)
 
 	// go accept loop
 	go func() {
@@ -63,7 +56,7 @@ func (m *Mogura) Go() (<-chan error, error) {
 					return
 				default:
 					// maybe reconnection.
-					errChan <- fmt.Errorf("listen.Accept failed: %v", err)
+					m.errChan <- fmt.Errorf("listen.Accept failed: %v", err)
 					continue
 				}
 			}
@@ -75,26 +68,43 @@ func (m *Mogura) Go() (<-chan error, error) {
 				case <-m.doneChan:
 					return
 				default:
-					errChan <- fmt.Errorf("remote dial failed: %v", err)
+					m.errChan <- fmt.Errorf("remote dial failed: %v", err)
 				}
 			}
 
 			// go forwarding
-			go forward(localConn, sshConn, errChan)
+			go forward(localConn, sshConn, m.errChan)
 		}
 	}()
 
-	return errChan, nil
+	return m, nil
+}
+
+type Mogura struct {
+	Config MoguraConfig
+
+	errChan chan error
+
+	// internal
+	sshClientConn  *ssh.Client
+	localListener  net.Listener
+	detectedRemote string
+
+	doneChan chan struct{}
+}
+
+func (m *Mogura) ErrChan() <-chan error {
+	return m.errChan
 }
 
 func (m *Mogura) ConnectSSH() error {
-	clientConfig, err := GenSSHClientConfig(m.BastionHostPort, m.Username, m.KeyPath)
+	clientConfig, err := GenSSHClientConfig(m.Config.BastionHostPort, m.Config.Username, m.Config.KeyPath)
 	if err != nil {
 		return fmt.Errorf("ssh config error: %v", err)
 	}
 
 	// Setup sshClientConn (type *ssh.ClientConn)
-	m.sshClientConn, err = ssh.Dial("tcp", m.BastionHostPort, clientConfig)
+	m.sshClientConn, err = ssh.Dial("tcp", m.Config.BastionHostPort, clientConfig)
 	if err != nil {
 		return fmt.Errorf("ssh.Dial failed: %v", err)
 	}
@@ -105,7 +115,7 @@ func (m *Mogura) ConnectSSH() error {
 func (m *Mogura) Listen() error {
 	// Setup localListener (type net.Listener)
 	var err error
-	m.localListener, err = net.Listen("tcp", m.LocalBindPort)
+	m.localListener, err = net.Listen("tcp", m.Config.LocalBindPort)
 	if err != nil {
 		return fmt.Errorf("local port binding failed: %v", err)
 	}
@@ -114,7 +124,7 @@ func (m *Mogura) Listen() error {
 }
 
 func (m *Mogura) ResolveRemote() error {
-	detected, err := m.ForwardingTarget.Resolve()
+	detected, err := m.Config.ForwardingTarget.Resolve()
 	if err != nil {
 		return err
 	}
