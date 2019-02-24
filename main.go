@@ -43,6 +43,8 @@ func main() {
 		log.Fatalf("can not load config file: %v", err)
 	}
 
+	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnel))
+
 	for _, t := range c.Tunnel {
 		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
 		localHostPort := localport(t.LocalBindPort)
@@ -75,6 +77,8 @@ func main() {
 			}()
 		}
 
+		// set map for control
+		moguraMap[t.Name] = mogura
 		log.Printf("started tunnel %s", mogura.Name)
 	}
 
@@ -82,5 +86,10 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
-	log.Printf("stopped mogura because got signal.")
+	log.Printf("stopping mogura because got signal...")
+	for n, m := range moguraMap {
+		m.Close()
+		log.Printf("closed %s tunnel.", n)
+	}
+	log.Printf("stopped mogura.")
 }
