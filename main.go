@@ -73,7 +73,7 @@ func main() {
 			log.Printf("start %s tunnel failed: %v", t.Name, err)
 		} else {
 			// show transfer error
-			go func() {
+			go func(t TunnelConfig) {
 				for tErr := range errChan {
 					/*
 					 TODO if too many got error then reconnection?
@@ -81,7 +81,7 @@ func main() {
 					*/
 					log.Printf("%s tunnel transfer failed: %v", t.Name, tErr)
 				}
-			}()
+			}(t)
 		}
 
 		// set map for control

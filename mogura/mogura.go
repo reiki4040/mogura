@@ -2,17 +2,11 @@ package mogura
 
 import (
 	"fmt"
-	"io"
-	"net"
-	"strconv"
-
 	"golang.org/x/crypto/ssh"
+	"io"
+	"log"
+	"net"
 )
-
-type TunnelConfig struct {
-	LocalBindPort        string
-	ForwardingRemotePort string
-}
 
 type Mogura struct {
 	Name             string
@@ -26,32 +20,18 @@ type Mogura struct {
 	sshClientConn  *ssh.Client
 	localListener  net.Listener
 	detectedRemote string
+
+	doneChan chan struct{}
 }
 
-type RemoteTarget struct {
-	ResolverType string
-	RemoteName   string
-	RemotePort   int
-}
-
-func (t RemoteTarget) Resolve() (string, error) {
-	switch t.ResolverType {
-	case "REMOTE-DNS":
-		// TODO resolve A,AAAA,CNAME,SRV in bastion env resolver (ex: Route53 private DNS
-		return "", fmt.Errorf("not yet implemented remote DNS resolver.")
-	case "HOST-PORT":
-		fallthrough
-	default:
-		// default Host and Port
-		detectedRemote := t.RemoteName + ":" + strconv.Itoa(t.RemotePort)
-
-		return detectedRemote, nil
-	}
-}
-
+/* TODO
+modified structure to MoguraConfig -Go()-> Mogura(it has state and can not start again)
+currently structure user call Go() again and broken mogura...
+*/
 // error is ssh connection and local listener error.
 // error channel transfer flow error
 func (m *Mogura) Go() (<-chan error, error) {
+	m.doneChan = make(chan struct{})
 	err := m.ConnectSSH()
 	if err != nil {
 		return nil, err
@@ -66,6 +46,7 @@ func (m *Mogura) Go() (<-chan error, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("remote: %s", m.detectedRemote)
 
 	errChan := make(chan error)
 
@@ -73,14 +54,33 @@ func (m *Mogura) Go() (<-chan error, error) {
 	go func() {
 		for {
 			// Setup localConn (type net.Conn)
+			// closed check logic refs:
+			// https://stackoverflow.com/questions/13417095/how-do-i-stop-a-listening-server-in-go
 			localConn, err := m.localListener.Accept()
 			if err != nil {
-				errChan <- fmt.Errorf("listen.Accept failed: %v", err)
-				// maybe reconnection.
+				select {
+				case <-m.doneChan:
+					return
+				default:
+					// maybe reconnection.
+					errChan <- fmt.Errorf("listen.Accept failed: %v", err)
+					continue
+				}
+			}
+
+			// Setup sshConn (type net.Conn)
+			sshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
+			if err != nil {
+				select {
+				case <-m.doneChan:
+					return
+				default:
+					errChan <- fmt.Errorf("remote dial failed: %v", err)
+				}
 			}
 
 			// go forwarding
-			go forward(localConn, m.sshClientConn, m.detectedRemote, errChan)
+			go forward(localConn, sshConn, errChan)
 		}
 	}()
 
@@ -124,31 +124,45 @@ func (m *Mogura) ResolveRemote() error {
 }
 
 func (m *Mogura) Close() error {
+	close(m.doneChan)
+
+	var lErr error
 	if m.localListener != nil {
-		m.localListener.Close()
+		lErr = m.localListener.Close()
 	}
+
+	var sErr error
 	if m.sshClientConn != nil {
-		m.sshClientConn.Close()
-
+		sErr = m.sshClientConn.Close()
 	}
 
-	// TODO error return
+	if lErr != nil && sErr != nil {
+		return fmt.Errorf("failed close local lister: %v, and close ssh connection: %v", lErr, sErr)
+	}
+
+	if lErr != nil {
+		return fmt.Errorf("failed close local listener: %v", lErr)
+	}
+
+	if sErr != nil {
+		return fmt.Errorf("failed close ssh connection: %v", sErr)
+	}
+
 	return nil
 }
 
-func forward(localConn net.Conn, sshClientConn *ssh.Client, remoteport string, errChan chan<- error) {
-	// Setup sshConn (type net.Conn)
-	sshConn, err := sshClientConn.Dial("tcp", remoteport)
+func forward(localConn, sshConn net.Conn, errChan chan<- error) {
 	// Copy localConn.Reader to sshConn.Writer
 	go func() {
-		_, err = io.Copy(sshConn, localConn)
+		_, err := io.Copy(sshConn, localConn)
 		if err != nil {
 			errChan <- fmt.Errorf("local -> remote transfer failed: %v", err)
 		}
 	}()
+
 	// Copy sshConn.Reader to localConn.Writer
 	go func() {
-		_, err = io.Copy(localConn, sshConn)
+		_, err := io.Copy(localConn, sshConn)
 		if err != nil {
 			errChan <- fmt.Errorf("remote -> local transfer failed: %v", err)
 		}
