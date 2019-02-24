@@ -43,19 +43,23 @@ func main() {
 		log.Fatalf("can not load config file: %v", err)
 	}
 
-	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnel))
+	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
 
-	for _, t := range c.Tunnel {
+	for _, t := range c.Tunnels {
 		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
 		localHostPort := localport(t.LocalBindPort)
-		forwardingRemotePort := hostport(t.RemoteHost, t.RemotePort)
+		forwardingRemotePort := hostport(t.RemoteName, t.RemotePort)
 		mogura := &mogura.Mogura{
-			Name:                 c.Bastion.Name + " -> " + t.Name,
-			BastionHostPort:      bastionHostPort,
-			Username:             c.Bastion.User,
-			KeyPath:              c.Bastion.KeyPath,
-			LocalBindPort:        localHostPort,
-			ForwardingRemotePort: forwardingRemotePort,
+			Name:            c.Bastion.Name + " -> " + t.Name,
+			BastionHostPort: bastionHostPort,
+			Username:        c.Bastion.User,
+			KeyPath:         c.Bastion.KeyPath,
+			LocalBindPort:   localHostPort,
+			ForwardingTarget: mogura.RemoteTarget{
+				ResolverType: t.ResolverType,
+				RemoteName:   t.RemoteName,
+				RemotePort:   t.RemotePort,
+			},
 		}
 
 		log.Printf("starting tunnel %s", mogura.Name)
@@ -71,7 +75,10 @@ func main() {
 			// show transfer error
 			go func() {
 				for tErr := range errChan {
-					// TODO if too many got error then reconnection?
+					/*
+					 TODO if too many got error then reconnection?
+					 use mogura.ConnectSSH(), mogura.ResolveRemote(), mogura.Listen()
+					*/
 					log.Printf("%s tunnel transfer failed: %v", t.Name, tErr)
 				}
 			}()

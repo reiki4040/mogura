@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	Bastion SSHConfig      `bastion_ssh_config`
-	Tunnel  []TunnelConfig `yaml:"tunnels"`
+	Tunnels []TunnelConfig `yaml:"tunnels"`
 }
 
 type SSHConfig struct {
@@ -23,7 +23,8 @@ type SSHConfig struct {
 type TunnelConfig struct {
 	Name          string `yaml:"name"`
 	LocalBindPort int    `yaml:"local_bind_port"`
-	RemoteHost    string `yaml:"remote_host"`
+	ResolverType  string `yaml:"resolver_type"`
+	RemoteName    string `yaml:"remote_name"`
 	RemotePort    int    `yaml:"remote_port"`
 }
 

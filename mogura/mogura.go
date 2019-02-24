@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -14,16 +15,38 @@ type TunnelConfig struct {
 }
 
 type Mogura struct {
-	Name                 string
-	BastionHostPort      string
-	Username             string
-	KeyPath              string
-	LocalBindPort        string
-	ForwardingRemotePort string
+	Name             string
+	BastionHostPort  string
+	Username         string
+	KeyPath          string
+	LocalBindPort    string
+	ForwardingTarget RemoteTarget
 
 	// internal
-	sshClientConn *ssh.Client
-	localListener net.Listener
+	sshClientConn  *ssh.Client
+	localListener  net.Listener
+	detectedRemote string
+}
+
+type RemoteTarget struct {
+	ResolverType string
+	RemoteName   string
+	RemotePort   int
+}
+
+func (t RemoteTarget) Resolve() (string, error) {
+	switch t.ResolverType {
+	case "REMOTE-DNS":
+		// TODO resolve A,AAAA,CNAME,SRV in bastion env resolver (ex: Route53 private DNS
+		return "", fmt.Errorf("not yet implemented remote DNS resolver.")
+	case "HOST-PORT":
+		fallthrough
+	default:
+		// default Host and Port
+		detectedRemote := t.RemoteName + ":" + strconv.Itoa(t.RemotePort)
+
+		return detectedRemote, nil
+	}
 }
 
 // error is ssh connection and local listener error.
@@ -35,6 +58,11 @@ func (m *Mogura) Go() (<-chan error, error) {
 	}
 
 	err = m.Listen()
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.ResolveRemote()
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +80,7 @@ func (m *Mogura) Go() (<-chan error, error) {
 			}
 
 			// go forwarding
-			go forward(localConn, m.sshClientConn, m.ForwardingRemotePort, errChan)
+			go forward(localConn, m.sshClientConn, m.detectedRemote, errChan)
 		}
 	}()
 
@@ -82,6 +110,16 @@ func (m *Mogura) Listen() error {
 		return fmt.Errorf("local port binding failed: %v", err)
 	}
 
+	return nil
+}
+
+func (m *Mogura) ResolveRemote() error {
+	detected, err := m.ForwardingTarget.Resolve()
+	if err != nil {
+		return err
+	}
+
+	m.detectedRemote = detected
 	return nil
 }
 
