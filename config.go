@@ -24,6 +24,7 @@ type TunnelConfig struct {
 	Name          string `yaml:"name"`
 	LocalBindPort int    `yaml:"local_bind_port"`
 	ResolverType  string `yaml:"resolver_type"`
+	Resolver      string `yaml:"resolver"`
 	RemoteName    string `yaml:"remote_name"`
 	RemotePort    int    `yaml:"remote_port"`
 }

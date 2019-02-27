@@ -57,6 +57,7 @@ func main() {
 			LocalBindPort:   localHostPort,
 			ForwardingTarget: mogura.RemoteTarget{
 				ResolverType: t.ResolverType,
+				Resolver:     t.Resolver,
 				RemoteName:   t.RemoteName,
 				RemotePort:   t.RemotePort,
 			},

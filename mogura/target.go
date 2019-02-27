@@ -3,6 +3,7 @@ package mogura
 import (
 	"fmt"
 	"github.com/reiki4040/mogura/resolver"
+	"golang.org/x/crypto/ssh"
 	"strconv"
 	"strings"
 )
@@ -13,15 +14,24 @@ var (
 
 type RemoteTarget struct {
 	ResolverType string
+	Resolver     string
 	RemoteName   string
 	RemotePort   int
 }
 
-func (t RemoteTarget) Resolve() (string, error) {
+func (t RemoteTarget) Resolve(conn *ssh.Client) (string, error) {
 	switch t.ResolverType {
-	case "REMOTE-DNS":
-		// TODO resolve A,AAAA,CNAME,SRV in bastion env resolver (ex: Route53 private DNS
-		return "", fmt.Errorf("not yet implemented remote DNS resolver.")
+	case "DNSViaSSH":
+		client := NewDNSClient(conn, t.Resolver)
+		srvs, err := client.QuerySRV(t.RemoteName)
+		if err != nil {
+			return "", err
+		}
+		if len(srvs) == 0 {
+			return "", fmt.Errorf("no answer DNS query")
+		}
+
+		return srvs[0].TargetPort(), nil
 	case "ROUTE53":
 		// TODO resolve private hosted zone via Route53 API (not DNS request)
 		splited := strings.Split(t.RemoteName, ":")

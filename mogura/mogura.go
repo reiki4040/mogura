@@ -62,6 +62,8 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			}
 
 			// Setup sshConn (type net.Conn)
+			// TODO SRV resolve with sshConn
+
 			sshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
 			if err != nil {
 				select {
@@ -124,7 +126,7 @@ func (m *Mogura) Listen() error {
 }
 
 func (m *Mogura) ResolveRemote() error {
-	detected, err := m.Config.ForwardingTarget.Resolve()
+	detected, err := m.Config.ForwardingTarget.Resolve(m.sshClientConn)
 	if err != nil {
 		return err
 	}
