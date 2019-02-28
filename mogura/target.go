@@ -21,16 +21,17 @@ type RemoteTarget struct {
 
 func (t RemoteTarget) Resolve(conn *ssh.Client) (string, error) {
 	switch t.ResolverType {
-	case "DNSViaSSH":
+	case "SRV":
 		client := NewDNSClient(conn, t.Resolver)
 		srvs, err := client.QuerySRV(t.RemoteName)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed SRV query to remote DNS: %v", err)
 		}
 		if len(srvs) == 0 {
-			return "", fmt.Errorf("no answer DNS query")
+			return "", fmt.Errorf("no answer %s", t.RemoteName)
 		}
 
+		// TODO if priority are same, then shuffle
 		return srvs[0].TargetPort(), nil
 	case "ROUTE53":
 		// TODO resolve private hosted zone via Route53 API (not DNS request)

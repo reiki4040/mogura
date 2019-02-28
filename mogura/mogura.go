@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
 	"net"
 )
 
@@ -39,7 +38,6 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("remote: %s", m.detectedRemote)
 
 	m.errChan = make(chan error)
 
@@ -62,8 +60,6 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			}
 
 			// Setup sshConn (type net.Conn)
-			// TODO SRV resolve with sshConn
-
 			sshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
 			if err != nil {
 				select {

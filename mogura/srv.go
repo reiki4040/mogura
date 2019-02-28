@@ -2,7 +2,6 @@ package mogura
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -86,18 +85,22 @@ func (s SRV) TargetPort() string {
 
 func ParseSRV(raw string) (SRV, error) {
 	tabSplited := strings.Split(raw, "\t")
-	srvStr := tabSplited[4]
+	if len(tabSplited) != 5 {
+		return SRV{}, fmt.Errorf("invalid format DNS Answer returned: %s", raw)
+	}
+	rawSRV := tabSplited[4]
 
-	log.Printf("%s", strings.Join(tabSplited, "_"))
-
-	items := strings.Split(srvStr, " ")
+	items := strings.Split(rawSRV, " ")
+	if len(items) != 4 {
+		return SRV{}, fmt.Errorf("invalid format SRV Record returned: %s", rawSRV)
+	}
 	priority, err := strconv.Atoi(items[0])
 	if err != nil {
-		return SRV{}, err
+		return SRV{}, fmt.Errorf("not numeric SRV Priority: %s", items[0])
 	}
 	weight, err := strconv.Atoi(items[1])
 	if err != nil {
-		return SRV{}, err
+		return SRV{}, fmt.Errorf("not numeric SRV Weight: %s", items[1])
 	}
 	port := items[2]
 	target := items[3]
