@@ -16,6 +16,14 @@ Mogura creates connections to microservices port forwarding.
 [local] -(ssh)-> [bastion] -(port forward)-> [target(ex microservice)]
 ```
 
+## install
+
+homebrew
+
+```
+brew tap reiki4040/mogura
+brew install mogura
+```
 
 ## settings
 
