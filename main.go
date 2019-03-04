@@ -44,16 +44,33 @@ func main() {
 		log.Fatalf("can not load config file: %v", err)
 	}
 
-	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
-
-	bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
-
-	// resolved "~/"
-	rKeyPath, err := ResolveUserHome(c.Bastion.KeyPath)
-	if err != nil {
-		log.Fatalf("can not resolved user home path in %s: %v", c.Bastion.KeyPath, err)
+	// default name is Bastion
+	basName := c.Bastion.Name
+	if basName == "" {
+		basName = "Bastion"
 	}
 
+	// default port 22(ssh default)
+	basPort := c.Bastion.Port
+	if basPort == 0 {
+		basPort = 22
+	}
+
+	bastionHostPort := hostport(c.Bastion.Host, basPort)
+
+	// default key path "~/.ssh/id_rsa"
+	basKeyPath := c.Bastion.KeyPath
+	if basKeyPath == "" {
+		basKeyPath = "~/.ssh/id_rsa"
+	}
+
+	// resolved "~/"
+	rKeyPath, err := ResolveUserHome(basKeyPath)
+	if err != nil {
+		log.Fatalf("can not resolved user home path in %s: %v", basKeyPath, err)
+	}
+
+	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
 	for i, t := range c.Tunnels {
 
 		localHostPort := localport(t.LocalBindPort)
@@ -63,7 +80,7 @@ func main() {
 			name = fmt.Sprintf("no name settting %d", i+1)
 		}
 		moguraConfig := mogura.MoguraConfig{
-			Name:            c.Bastion.Name + " -> " + name,
+			Name:            basName + " -> " + name,
 			BastionHostPort: bastionHostPort,
 			Username:        c.Bastion.User,
 			KeyPath:         rKeyPath,

@@ -1,11 +1,11 @@
 bastion_ssh_config:
-  name: bastion
+  name: bastion     # optional default is "Bastion"
   host: localhost
-  port: 2222
+  port: 2222        # optional default is 22
   user: vagrant
-  key_path: .vagrant/machines/bastion/virtualbox/private_key
+  key_path: .vagrant/machines/bastion/virtualbox/private_key  # optional default is "~/.ssh/id_rsa"
   # if your use SRV record, then need set remote resolver to 'remote_dns'.
-  #remote_dns: your_dns:53
+  #remote_dns: your.dns:53
 tunnels:
   - name: nginx
     local_bind_port: 8080
