@@ -54,11 +54,16 @@ func main() {
 		log.Fatalf("can not resolved user home path in %s: %v", c.Bastion.KeyPath, err)
 	}
 
-	for _, t := range c.Tunnels {
+	for i, t := range c.Tunnels {
 
 		localHostPort := localport(t.LocalBindPort)
+
+		name := t.Name
+		if t.Name == "" {
+			name = fmt.Sprintf("no name settting %d", i+1)
+		}
 		moguraConfig := mogura.MoguraConfig{
-			Name:            c.Bastion.Name + " -> " + t.Name,
+			Name:            c.Bastion.Name + " -> " + name,
 			BastionHostPort: bastionHostPort,
 			Username:        c.Bastion.User,
 			KeyPath:         rKeyPath,
