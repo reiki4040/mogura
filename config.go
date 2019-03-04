@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -49,4 +52,18 @@ func hostport(host string, port int) string {
 }
 func localport(port int) string {
 	return "localhost:" + strconv.Itoa(port)
+}
+
+func ResolveUserHome(path string) (string, error) {
+	if i := strings.Index(path, "~/"); i == 0 {
+		user, err := user.Current()
+		if err != nil {
+			return path, fmt.Errorf("can not resolved home dir: %v", err)
+		}
+
+		resolvedPath := user.HomeDir + string(os.PathSeparator) + path[2:]
+		return resolvedPath, nil
+	} else {
+		return path, nil
+	}
 }

@@ -46,15 +46,22 @@ func main() {
 
 	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
 
-	for _, t := range c.Tunnels {
-		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
-		localHostPort := localport(t.LocalBindPort)
+	bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
 
+	// resolved "~/"
+	rKeyPath, err := ResolveUserHome(c.Bastion.KeyPath)
+	if err != nil {
+		log.Fatalf("can not resolved user home path in %s: %v", c.Bastion.KeyPath, err)
+	}
+
+	for _, t := range c.Tunnels {
+
+		localHostPort := localport(t.LocalBindPort)
 		moguraConfig := mogura.MoguraConfig{
 			Name:            c.Bastion.Name + " -> " + t.Name,
 			BastionHostPort: bastionHostPort,
 			Username:        c.Bastion.User,
-			KeyPath:         c.Bastion.KeyPath,
+			KeyPath:         rKeyPath,
 			LocalBindPort:   localHostPort,
 			RemoteDNS:       c.Bastion.RemoteDNS,
 			ForwardingTarget: mogura.Target{
