@@ -12,32 +12,31 @@ var (
 	route53Resolver = resolver.NewRoute53Resolver("ap-northeast-1")
 )
 
-type RemoteTarget struct {
-	ResolverType string
-	Resolver     string
-	RemoteName   string
-	RemotePort   int
+type Target struct {
+	TargetType string
+	Target     string
+	TargetPort int
 }
 
-func (t RemoteTarget) Resolve(conn *ssh.Client) (string, error) {
-	switch t.ResolverType {
+func (t Target) Resolve(conn *ssh.Client, resolver string) (string, error) {
+	switch t.TargetType {
 	case "SRV":
-		client := NewDNSClient(conn, t.Resolver)
-		srvs, err := client.QuerySRV(t.RemoteName)
+		client := NewDNSClient(conn, resolver)
+		srvs, err := client.QuerySRV(t.Target)
 		if err != nil {
 			return "", fmt.Errorf("failed SRV query to remote DNS: %v", err)
 		}
 		if len(srvs) == 0 {
-			return "", fmt.Errorf("no answer %s", t.RemoteName)
+			return "", fmt.Errorf("no answer %s", t.Target)
 		}
 
 		// TODO if priority are same, then shuffle
 		return srvs[0].TargetPort(), nil
 	case "ROUTE53":
 		// TODO resolve private hosted zone via Route53 API (not DNS request)
-		splited := strings.Split(t.RemoteName, ":")
+		splited := strings.Split(t.Target, ":")
 		if len(splited) != 2 {
-			return "", fmt.Errorf("invalid Route53 type remote_name: %s. format is hostedzoneId:DNSName", t.RemoteName)
+			return "", fmt.Errorf("invalid Route53 type remote_name: %s. format is hostedzoneId:DNSName", t.Target)
 		}
 
 		result, err := route53Resolver.Resolve(splited[0], splited[1])
@@ -48,7 +47,7 @@ func (t RemoteTarget) Resolve(conn *ssh.Client) (string, error) {
 		switch result.Type {
 		case "A":
 			// TODO random get values(records)
-			detectedRemote := result.Values[0] + ":" + strconv.Itoa(t.RemotePort)
+			detectedRemote := result.Values[0] + ":" + strconv.Itoa(t.TargetPort)
 			return detectedRemote, nil
 		case "CNAME":
 			// TODO CNAME
@@ -64,7 +63,7 @@ func (t RemoteTarget) Resolve(conn *ssh.Client) (string, error) {
 		fallthrough
 	default:
 		// default Host and Port
-		detectedRemote := t.RemoteName + ":" + strconv.Itoa(t.RemotePort)
+		detectedRemote := t.Target + ":" + strconv.Itoa(t.TargetPort)
 
 		return detectedRemote, nil
 	}

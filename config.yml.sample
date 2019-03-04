@@ -4,10 +4,17 @@ bastion_ssh_config:
   port: 2222
   user: vagrant
   key_path: .vagrant/machines/bastion/virtualbox/private_key
+  # if your use SRV record, then need set remote resolver to 'remote_dns'.
+  #remote_dns: your_dns:53
 tunnels:
   - name: nginx
     local_bind_port: 8080
-    resolver_type: "HOST-IP"
     remote_name: 192.168.50.6
     remote_port: 80
+## below example for SRV record
+#  - name: ecs_service
+#    local_bind_port: 8081
+#    target_type: SRV
+#    target: _grpclb._tcp.your.domain
+
 

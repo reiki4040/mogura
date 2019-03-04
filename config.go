@@ -13,20 +13,20 @@ type Config struct {
 }
 
 type SSHConfig struct {
-	Name    string `yaml:"name"`
-	Host    string `yaml:"host"`
-	Port    int    `yaml:"port"`
-	User    string `yaml:"user"`
-	KeyPath string `yaml:"key_path"`
+	Name      string `yaml:"name"`
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	User      string `yaml:"user"`
+	KeyPath   string `yaml:"key_path"`
+	RemoteDNS string `yaml:"remote_dns"`
 }
 
 type TunnelConfig struct {
 	Name          string `yaml:"name"`
 	LocalBindPort int    `yaml:"local_bind_port"`
-	ResolverType  string `yaml:"resolver_type"`
-	Resolver      string `yaml:"resolver"`
-	RemoteName    string `yaml:"remote_name"`
-	RemotePort    int    `yaml:"remote_port"`
+	TargetType    string `yaml:"target_type"`
+	Target        string `yaml:"target"`
+	TargetPort    int    `yaml:"target_port"`
 }
 
 func LoadFromYamlFile(filePath string, p interface{}) error {

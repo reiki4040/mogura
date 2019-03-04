@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/reiki4040/mogura/mogura"
 )
@@ -48,23 +49,27 @@ func main() {
 	for _, t := range c.Tunnels {
 		bastionHostPort := hostport(c.Bastion.Host, c.Bastion.Port)
 		localHostPort := localport(t.LocalBindPort)
-		forwardingRemotePort := hostport(t.RemoteName, t.RemotePort)
+
 		moguraConfig := mogura.MoguraConfig{
 			Name:            c.Bastion.Name + " -> " + t.Name,
 			BastionHostPort: bastionHostPort,
 			Username:        c.Bastion.User,
 			KeyPath:         c.Bastion.KeyPath,
 			LocalBindPort:   localHostPort,
-			ForwardingTarget: mogura.RemoteTarget{
-				ResolverType: t.ResolverType,
-				Resolver:     t.Resolver,
-				RemoteName:   t.RemoteName,
-				RemotePort:   t.RemotePort,
+			RemoteDNS:       c.Bastion.RemoteDNS,
+			ForwardingTarget: mogura.Target{
+				TargetType: t.TargetType,
+				Target:     t.Target,
+				TargetPort: t.TargetPort,
 			},
 		}
 
+		forwardingTarget := t.Target
+		if t.TargetPort > 0 {
+			forwardingTarget += ":" + strconv.Itoa(t.TargetPort)
+		}
 		log.Printf("starting tunnel %s", moguraConfig.Name)
-		log.Printf("%s -> %s -> %s", localHostPort, bastionHostPort, forwardingRemotePort)
+		log.Printf("%s -> %s -> %s", localHostPort, bastionHostPort, forwardingTarget)
 		mogura, err := mogura.GoMogura(moguraConfig)
 		if err != nil {
 			/*

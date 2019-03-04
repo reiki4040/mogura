@@ -12,8 +12,9 @@ type MoguraConfig struct {
 	BastionHostPort  string
 	Username         string
 	KeyPath          string
+	RemoteDNS        string
 	LocalBindPort    string
-	ForwardingTarget RemoteTarget
+	ForwardingTarget Target
 }
 
 // error is ssh connection and local listener error.
@@ -122,7 +123,7 @@ func (m *Mogura) Listen() error {
 }
 
 func (m *Mogura) ResolveRemote() error {
-	detected, err := m.Config.ForwardingTarget.Resolve(m.sshClientConn)
+	detected, err := m.Config.ForwardingTarget.Resolve(m.sshClientConn, m.Config.RemoteDNS)
 	if err != nil {
 		return err
 	}
