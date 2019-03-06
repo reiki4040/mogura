@@ -3,6 +3,7 @@ package mogura
 import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
+	"log"
 	"strconv"
 )
 
@@ -25,6 +26,8 @@ func (t Target) Resolve(conn *ssh.Client, resolver string) (string, error) {
 		}
 
 		// TODO if priority are same, then shuffle
+		// TODO fix logging...
+		log.Printf("resolved SRV record %s => %s", t.Target, srvs[0].TargetPort())
 		return srvs[0].TargetPort(), nil
 	case "HOST-PORT":
 		fallthrough
