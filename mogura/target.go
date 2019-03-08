@@ -25,10 +25,22 @@ func (t Target) Resolve(conn *ssh.Client, resolver string) (string, error) {
 			return "", fmt.Errorf("no answer %s", t.Target)
 		}
 
+		// Why do not auto detect AWS ECS ServiceDiscovery A record...?
+		// detect A record by myself.
+		targets, err := client.QueryA(srvs[0].Target)
+		if err != nil {
+			return "", fmt.Errorf("failed %s A query to remote DNS: %v", srvs[0].Target, err)
+		}
+
+		if len(targets) == 0 {
+			return "", fmt.Errorf("%s answer is empty.", srvs[0].Target)
+		}
+
 		// TODO if priority are same, then shuffle
 		// TODO fix logging...
 		log.Printf("resolved SRV record %s => %s", t.Target, srvs[0].TargetPort())
-		return srvs[0].TargetPort(), nil
+		log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0])
+		return targets[0] + ":" + srvs[0].Port, nil
 	case "HOST-PORT":
 		fallthrough
 	default:

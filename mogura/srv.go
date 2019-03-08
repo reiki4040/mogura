@@ -23,7 +23,7 @@ type DNSClient struct {
 	remoteDNS     string
 }
 
-func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
+func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 	co := new(dns.Conn)
 	co.ForceTCP = true
 	var err error
@@ -43,9 +43,15 @@ func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
 		Question: make([]dns.Question, 1),
 	}
 
+	qType := dns.TypeA
+	switch queryType {
+	case "SRV":
+		qType = dns.TypeSRV
+	}
+
 	m.Question[0] = dns.Question{
 		Name:   dns.Fqdn(domain),
-		Qtype:  dns.TypeSRV,
+		Qtype:  qType,
 		Qclass: uint16(dns.ClassINET),
 	}
 
@@ -56,13 +62,40 @@ func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
 		return nil, fmt.Errorf("dns write error: %v", err)
 	}
 
-	r, err := co.ReadMsg()
+	dnsMsg, err := co.ReadMsg()
 	if err != nil {
 		return nil, fmt.Errorf("dns read error: %v", err)
 	}
 
-	records := make([]SRV, 0, len(r.Answer))
-	for _, ans := range r.Answer {
+	return dnsMsg, nil
+}
+
+func (d *DNSClient) QueryA(domain string) ([]string, error) {
+	dnsMsg, err := d.Query(domain, "A")
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]string, 0, len(dnsMsg.Answer))
+	for _, ans := range dnsMsg.Answer {
+		a, err := ParseA(ans.String())
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, a)
+	}
+	return records, nil
+}
+
+func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
+	dnsMsg, err := d.Query(domain, "SRV")
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]SRV, 0, len(dnsMsg.Answer))
+	for _, ans := range dnsMsg.Answer {
 		srv, err := ParseSRV(ans.String())
 		if err != nil {
 			return nil, err
@@ -82,6 +115,18 @@ type SRV struct {
 
 func (s SRV) TargetPort() string {
 	return s.Target + ":" + s.Port
+}
+
+func ParseA(raw string) (string, error) {
+	whitespace := regexp.MustCompile(`\s+`)
+	replaced := whitespace.ReplaceAllString(raw, " ")
+
+	splited := strings.Split(replaced, " ")
+	if len(splited) != 5 {
+		return "", fmt.Errorf("invalid format A record answer returned: %s", raw)
+	}
+
+	return splited[4], nil
 }
 
 func ParseSRV(raw string) (SRV, error) {
