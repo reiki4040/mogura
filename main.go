@@ -11,19 +11,25 @@ import (
 	"github.com/reiki4040/mogura/mogura"
 )
 
+const (
+	ENV_HOME = "HOME"
+)
+
 var (
 	// for version info
 	version   string
 	hash      string
 	goversion string
 
-	showVer        bool
-	configFilePath string
+	showVer           bool
+	optConfigFilePath string
 )
 
 func init() {
 	flag.BoolVar(&showVer, "v", false, "show version")
-	flag.StringVar(&configFilePath, "config", "./config.yml", "config file path. default: ./config.yml")
+
+	defConf := GetDefaultConfigPath()
+	flag.StringVar(&optConfigFilePath, "config", "", fmt.Sprintf("config file path. default: %s", defConf))
 
 	flag.Parse()
 }
@@ -38,10 +44,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	c := &Config{}
-	err := LoadFromYamlFile(configFilePath, c)
+	// default or specified option
+	confPath := GetDefaultConfigPath()
+	if optConfigFilePath != "" {
+		confPath = optConfigFilePath
+	}
+
+	c, err := LoadConfig(confPath)
 	if err != nil {
-		log.Fatalf("can not load config file: %v", err)
+		log.Fatalf("can not load config file %s: %v", confPath, err)
 	}
 
 	// default name is Bastion

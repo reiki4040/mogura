@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+func GetMoguraDir() string {
+	return os.Getenv(ENV_HOME) + string(os.PathSeparator) + ".mogura"
+}
+
+func GetDefaultConfigPath() string {
+	return GetMoguraDir() + string(os.PathSeparator) + "config.yml"
+}
+
 type Config struct {
 	Bastion SSHConfig      `bastion_ssh_config`
 	Tunnels []TunnelConfig `yaml:"tunnels"`
@@ -30,6 +38,16 @@ type TunnelConfig struct {
 	TargetType    string `yaml:"target_type"`
 	Target        string `yaml:"target"`
 	TargetPort    int    `yaml:"target_port"`
+}
+
+func LoadConfig(path string) (*Config, error) {
+	c := &Config{}
+	err := LoadFromYamlFile(path, c)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 func LoadFromYamlFile(filePath string, p interface{}) error {

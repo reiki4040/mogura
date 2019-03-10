@@ -27,6 +27,8 @@ brew install mogura
 
 ## settings
 
+default load config file path is `~/.mogura/config.yml`. if you want specify other file, then use `-config` option.
+
 ### sample settings
 
 example for EC2 or RDS etc...
@@ -88,5 +90,5 @@ name | display name | nginx | "no name setting N"
 local_bind_port | binding local port | 8080 | Required
 target | target IP or Domain name | sample.your.domain | Required
 target_port | target port | 80 | Required. if set target_type is "SRV" then not specified.
-target_type | only use set target is SRV | SRV | Required if set target is SRV record 
+target_type | only use set target is SRV | SRV | Required if set target is SRV record
 
