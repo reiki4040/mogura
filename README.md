@@ -18,11 +18,18 @@ Mogura creates connections to microservices port forwarding.
 
 ## install
 
-homebrew
+install with homebrew
 
 ```
 brew tap reiki4040/mogura
 brew install mogura
+```
+
+upgrade 
+
+```
+brew update
+brew upgrade mogura
 ```
 
 ## settings
