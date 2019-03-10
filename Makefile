@@ -15,6 +15,11 @@ mac-build:
 	export GO111MODULE=on
 	ENABLED_CGO=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME)-darwin-amd64
 
+.PHONY: win-build
+win-build:
+	export GO111MODULE=on
+	ENABLED_CGO=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME)-windows-amd64
+
 .PHONY: docker-build
 docker-build:
 	docker build -t $(NAME):$(VERSION) .
