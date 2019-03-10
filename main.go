@@ -61,6 +61,10 @@ func main() {
 		basName = "Bastion"
 	}
 
+	if c.Bastion.Host == "" {
+		log.Fatalf("bastion host is required.")
+	}
+
 	// default port 22(ssh default)
 	basPort := c.Bastion.Port
 	if basPort == 0 {
@@ -82,26 +86,48 @@ func main() {
 	}
 
 	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
+	skipCount := 0
 	for i, t := range c.Tunnels {
-
-		localHostPort := localport(t.LocalBindPort)
-
 		name := t.Name
 		if t.Name == "" {
 			name = fmt.Sprintf("no name settting %d", i+1)
 		}
+
+		if t.LocalBindPort == 0 {
+			log.Printf("ERROR tunnel %s: missing local_bind_port, skip.", name)
+			skipCount++
+			continue
+		}
+
+		localHostPort := localport(t.LocalBindPort)
+
+		target := mogura.Target{
+			TargetType: t.TargetType,
+			Target:     t.Target,
+			TargetPort: t.TargetPort,
+		}
+		err := target.Validate()
+		if err != nil {
+			log.Printf("ERROR tunnel %s: invalid tunnel target: %v, skip.", name, err)
+			skipCount++
+			continue
+		}
+
+		if t.TargetType == "SRV" {
+			if c.Bastion.RemoteDNS == "" {
+				log.Printf("ERROR tunnel %s: remote_dns is required when target type is SRV, skip.", name)
+				skipCount++
+				continue
+			}
+		}
 		moguraConfig := mogura.MoguraConfig{
-			Name:            basName + " -> " + name,
-			BastionHostPort: bastionHostPort,
-			Username:        c.Bastion.User,
-			KeyPath:         rKeyPath,
-			LocalBindPort:   localHostPort,
-			RemoteDNS:       c.Bastion.RemoteDNS,
-			ForwardingTarget: mogura.Target{
-				TargetType: t.TargetType,
-				Target:     t.Target,
-				TargetPort: t.TargetPort,
-			},
+			Name:             basName + " -> " + name,
+			BastionHostPort:  bastionHostPort,
+			Username:         c.Bastion.User,
+			KeyPath:          rKeyPath,
+			LocalBindPort:    localHostPort,
+			RemoteDNS:        c.Bastion.RemoteDNS,
+			ForwardingTarget: target,
 		}
 
 		forwardingTarget := t.Target
@@ -134,6 +160,17 @@ func main() {
 		moguraMap[t.Name] = mogura
 		log.Printf("started tunnel %s", mogura.Config.Name)
 	}
+
+	// all tunnel is wrong
+	if skipCount == len(c.Tunnels) {
+		log.Fatalf("all tunnels are invalid. mogura was not started.")
+	}
+
+	if skipCount > 0 {
+		log.Printf("some tunnels are invalid. those tunnel were not started.")
+	}
+
+	log.Printf("mogura is started. mogura stop with press Ctrl+C")
 
 	// waiting Ctrl + C
 	quit := make(chan os.Signal)

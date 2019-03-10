@@ -13,6 +13,27 @@ type Target struct {
 	TargetPort int
 }
 
+func (t Target) Validate() error {
+	if t.Target == "" {
+		return fmt.Errorf("target is required.")
+	}
+
+	switch t.TargetType {
+	case "SRV":
+		if t.TargetPort != 0 {
+			return fmt.Errorf("target port is specifeid, however target type SRV.")
+		}
+	case "HOST-IP":
+		fallthrough
+	default:
+		if t.TargetPort == 0 {
+			return fmt.Errorf("target port is require.")
+		}
+	}
+
+	return nil
+}
+
 func (t Target) Resolve(conn *ssh.Client, resolver string) (string, error) {
 	switch t.TargetType {
 	case "SRV":
