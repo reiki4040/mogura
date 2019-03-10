@@ -12,6 +12,19 @@ import (
 )
 
 const (
+	USAGE = `mogura - ssh tunneling tool.
+
+usage:
+  
+  mogura [-config config.yml] 
+
+options:
+  -v: show version, hash, go version.
+  -h: show this usage.
+
+  -config: specified tunnel configuration file. default ~/.mogura/config.yml
+`
+
 	ENV_HOME = "HOME"
 )
 
@@ -22,16 +35,20 @@ var (
 	goversion string
 
 	showVer           bool
+	showUsage         bool
 	optConfigFilePath string
 )
 
 func init() {
+	flag.BoolVar(&showUsage, "h", false, "show usage.")
 	flag.BoolVar(&showVer, "v", false, "show version")
-
-	defConf := GetDefaultConfigPath()
-	flag.StringVar(&optConfigFilePath, "config", "", fmt.Sprintf("config file path. default: %s", defConf))
+	flag.StringVar(&optConfigFilePath, "config", "", "config file path. default: ~/.mogura/config.yml")
 
 	flag.Parse()
+}
+
+func usage() {
+	fmt.Printf("%s\n", USAGE)
 }
 
 func showVersion() {
@@ -39,6 +56,11 @@ func showVersion() {
 }
 
 func main() {
+	if showUsage {
+		usage()
+		os.Exit(0)
+	}
+
 	if showVer {
 		showVersion()
 		os.Exit(0)
