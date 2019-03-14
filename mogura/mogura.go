@@ -24,7 +24,8 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 		Config: c,
 	}
 
-	m.doneChan = make(chan struct{})
+	m.localDoneChan = make(chan struct{})
+	m.remoteDoneChan = make(chan struct{})
 	err := m.ConnectSSH()
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			localConn, err := m.localListener.Accept()
 			if err != nil {
 				select {
-				case <-m.doneChan:
+				case <-m.localDoneChan:
 					return
 				default:
 					// maybe reconnection.
@@ -64,7 +65,7 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			sshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
 			if err != nil {
 				select {
-				case <-m.doneChan:
+				case <-m.remoteDoneChan:
 					return
 				default:
 					m.errChan <- fmt.Errorf("remote dial failed: %v", err)
@@ -90,7 +91,8 @@ type Mogura struct {
 	localListener  net.Listener
 	detectedRemote string
 
-	doneChan chan struct{}
+	localDoneChan  chan struct{}
+	remoteDoneChan chan struct{}
 }
 
 func (m *Mogura) ErrChan() <-chan error {
@@ -133,29 +135,62 @@ func (m *Mogura) ResolveRemote() error {
 	return nil
 }
 
-func (m *Mogura) Close() error {
-	close(m.doneChan)
+func (m *Mogura) ReconnectRemote() error {
+	// resolve remote again.
+	err := m.ResolveRemote()
+	if err != nil {
+		return err
+	}
+
+	// TODO maybe need lock
+
+	return nil
+}
+
+func (m *Mogura) CloseLocalConn() error {
+	close(m.localDoneChan)
 
 	var lErr error
 	if m.localListener != nil {
 		lErr = m.localListener.Close()
 	}
 
-	var sErr error
-	if m.sshClientConn != nil {
-		sErr = m.sshClientConn.Close()
-	}
-
-	if lErr != nil && sErr != nil {
-		return fmt.Errorf("failed close local lister: %v, and close ssh connection: %v", lErr, sErr)
-	}
-
 	if lErr != nil {
 		return fmt.Errorf("failed close local listener: %v", lErr)
 	}
 
-	if sErr != nil {
-		return fmt.Errorf("failed close ssh connection: %v", sErr)
+	return nil
+}
+
+func (m *Mogura) CloseRemoteConn() error {
+	close(m.remoteDoneChan)
+
+	var rErr error
+	if m.sshClientConn != nil {
+		rErr = m.sshClientConn.Close()
+	}
+
+	if rErr != nil {
+		return fmt.Errorf("failed close ssh connection: %v", rErr)
+	}
+
+	return nil
+}
+
+func (m *Mogura) Close() error {
+	lErr := m.CloseLocalConn()
+	rErr := m.CloseRemoteConn()
+
+	if lErr != nil && rErr != nil {
+		return fmt.Errorf("%v and %v", lErr, rErr)
+	}
+
+	if lErr != nil {
+		return lErr
+	}
+
+	if rErr != nil {
+		return rErr
 	}
 
 	return nil
