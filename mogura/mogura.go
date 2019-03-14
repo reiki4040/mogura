@@ -68,6 +68,7 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 					return
 				default:
 					m.errChan <- fmt.Errorf("remote dial failed: %v", err)
+					continue
 				}
 			}
 
