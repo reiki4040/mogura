@@ -61,7 +61,7 @@ func (t Target) Resolve(conn *ssh.Client, resolver string) (string, error) {
 		// TODO fix logging...
 		log.Printf("resolved SRV record %s => %s", t.Target, srvs[0].TargetPort())
 		log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0])
-		return targets[0] + ":" + srvs[0].Port, nil
+		return targets[0].Target + ":" + srvs[0].Port, nil
 	case "HOST-PORT":
 		fallthrough
 	default:

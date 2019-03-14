@@ -70,13 +70,13 @@ func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 	return dnsMsg, nil
 }
 
-func (d *DNSClient) QueryA(domain string) ([]string, error) {
+func (d *DNSClient) QueryA(domain string) ([]A, error) {
 	dnsMsg, err := d.Query(domain, "A")
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]string, 0, len(dnsMsg.Answer))
+	records := make([]A, 0, len(dnsMsg.Answer))
 	for _, ans := range dnsMsg.Answer {
 		a, err := ParseA(ans.String())
 		if err != nil {
@@ -85,6 +85,7 @@ func (d *DNSClient) QueryA(domain string) ([]string, error) {
 
 		records = append(records, a)
 	}
+
 	return records, nil
 }
 
@@ -103,10 +104,17 @@ func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
 
 		records = append(records, srv)
 	}
+
 	return records, nil
 }
 
+type A struct {
+	TTL    int
+	Target string
+}
+
 type SRV struct {
+	TTL      int
 	Priority int
 	Weight   int
 	Port     string
@@ -117,16 +125,26 @@ func (s SRV) TargetPort() string {
 	return s.Target + ":" + s.Port
 }
 
-func ParseA(raw string) (string, error) {
+func ParseA(raw string) (A, error) {
 	whitespace := regexp.MustCompile(`\s+`)
 	replaced := whitespace.ReplaceAllString(raw, " ")
 
 	splited := strings.Split(replaced, " ")
 	if len(splited) != 5 {
-		return "", fmt.Errorf("invalid format A record answer returned: %s", raw)
+		return A{}, fmt.Errorf("invalid format A record answer returned: %s", raw)
 	}
 
-	return splited[4], nil
+	ttl, err := strconv.Atoi(splited[1])
+	if err != nil {
+		return A{}, fmt.Errorf("not numeric A ttl: %s", splited[1])
+	}
+
+	a := A{
+		TTL:    ttl,
+		Target: splited[4],
+	}
+
+	return a, nil
 }
 
 func ParseSRV(raw string) (SRV, error) {
@@ -149,10 +167,16 @@ func ParseSRV(raw string) (SRV, error) {
 	port := splited[6]
 	target := splited[7]
 
+	ttl, err := strconv.Atoi(splited[1])
+	if err != nil {
+		return SRV{}, fmt.Errorf("not numeric SRV ttl: %s", splited[1])
+	}
+
 	return SRV{
 		Priority: priority,
 		Weight:   weight,
 		Port:     port,
 		Target:   target,
+		TTL:      ttl,
 	}, nil
 }
