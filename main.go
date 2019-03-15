@@ -109,6 +109,7 @@ func main() {
 
 	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
 	skipCount := 0
+	portMap := make(map[int]struct{}, len(c.Tunnels))
 	for i, t := range c.Tunnels {
 		name := t.Name
 		if t.Name == "" {
@@ -119,6 +120,15 @@ func main() {
 			log.Printf("ERROR tunnel %s: missing local_bind_port, skip.", name)
 			skipCount++
 			continue
+		}
+
+		// duplicate port check
+		_, exists := portMap[t.LocalBindPort]
+		if exists {
+			log.Printf("ERROR tunnel %s: duplicate local_bind_port %d, skip.", name, t.LocalBindPort)
+			continue
+		} else {
+			portMap[t.LocalBindPort] = struct{}{}
 		}
 
 		localHostPort := localport(t.LocalBindPort)
