@@ -9,8 +9,8 @@ bastion_ssh_config:
 tunnels:
   - name: nginx
     local_bind_port: 8080
-    remote_name: 192.168.50.6
-    remote_port: 80
+    target: 192.168.50.6
+    target_port: 80
 ## below example for SRV record
 #  - name: ecs_service
 #    local_bind_port: 8081
