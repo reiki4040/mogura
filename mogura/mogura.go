@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
+	"log"
 	"net"
+	"time"
 )
 
 type MoguraConfig struct {
@@ -42,6 +44,13 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 	}
 
 	m.errChan = make(chan error)
+	resolveErrChan := m.GoResolveCycle(10)
+	go func() {
+		// chain error channel
+		for e := range resolveErrChan {
+			m.errChan <- e
+		}
+	}()
 
 	// go accept loop
 	go func() {
@@ -125,24 +134,33 @@ func (m *Mogura) Listen() error {
 	return nil
 }
 
-func (m *Mogura) ResolveRemote() error {
-	detected, err := m.Config.ForwardingTarget.Resolve(m.sshClientConn, m.Config.RemoteDNS)
-	if err != nil {
-		return err
-	}
+func (m *Mogura) GoResolveCycle(interval int64) <-chan error {
+	errChan := make(chan error)
+	tick := time.Tick(time.Duration(interval) * time.Second)
+	go func() {
+		for _ = range tick {
+			err := m.ResolveRemote()
+			if err != nil {
+				errChan <- err
+			}
+		}
+	}()
 
-	m.detectedRemote = detected
-	return nil
+	return errChan
 }
 
-func (m *Mogura) ReconnectRemote() error {
-	// resolve remote again.
-	err := m.ResolveRemote()
+func (m *Mogura) ResolveRemote() error {
+	err := m.Config.ForwardingTarget.Resolve(m.sshClientConn, m.Config.RemoteDNS)
 	if err != nil {
 		return err
 	}
 
-	// TODO maybe need lock
+	detect := m.Config.ForwardingTarget.ResolvedTargetAndPort()
+	if detect != "" && detect != m.detectedRemote {
+		// TODO logging
+		log.Printf("target changed: %s -> %s", m.detectedRemote, detect)
+		m.detectedRemote = detect
+	}
 
 	return nil
 }
