@@ -63,10 +63,10 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 
 		// TODO if priority are same, then shuffle
 		// TODO fix logging...
-		log.Printf("resolved SRV record %s => %s", t.Target, srvs[0].TargetPort())
-		log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0].Target)
-		t.resolvedTarget = targets[0].Target
-		t.resolvedPort = srvs[0].Port
+		log.Printf("resolved SRV record %s => %s:%d", t.Target, srvs[0].Target, srvs[0].Port)
+		log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0].A.String())
+		t.resolvedTarget = targets[0].A.String()
+		t.resolvedPort = strconv.Itoa(int(srvs[0].Port))
 
 		// TODO start goroutine that resolve again after ttl
 		return nil

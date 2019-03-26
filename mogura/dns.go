@@ -2,9 +2,6 @@ package mogura
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/reiki4040/dns"
@@ -70,113 +67,32 @@ func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 	return dnsMsg, nil
 }
 
-func (d *DNSClient) QueryA(domain string) ([]A, error) {
+func (d *DNSClient) QueryA(domain string) ([]*dns.A, error) {
 	dnsMsg, err := d.Query(domain, "A")
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]A, 0, len(dnsMsg.Answer))
+	records := make([]*dns.A, 0, len(dnsMsg.Answer))
 	for _, ans := range dnsMsg.Answer {
-		a, err := ParseA(ans.String())
-		if err != nil {
-			return nil, err
-		}
-
+		a := ans.(*dns.A)
 		records = append(records, a)
 	}
 
 	return records, nil
 }
 
-func (d *DNSClient) QuerySRV(domain string) ([]SRV, error) {
+func (d *DNSClient) QuerySRV(domain string) ([]*dns.SRV, error) {
 	dnsMsg, err := d.Query(domain, "SRV")
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]SRV, 0, len(dnsMsg.Answer))
+	records := make([]*dns.SRV, 0, len(dnsMsg.Answer))
 	for _, ans := range dnsMsg.Answer {
-		srv, err := ParseSRV(ans.String())
-		if err != nil {
-			return nil, err
-		}
-
+		srv := ans.(*dns.SRV)
 		records = append(records, srv)
 	}
 
 	return records, nil
-}
-
-type A struct {
-	TTL    int
-	Target string
-}
-
-type SRV struct {
-	TTL      int
-	Priority int
-	Weight   int
-	Port     string
-	Target   string
-}
-
-func (s SRV) TargetPort() string {
-	return s.Target + ":" + s.Port
-}
-
-func ParseA(raw string) (A, error) {
-	whitespace := regexp.MustCompile(`\s+`)
-	replaced := whitespace.ReplaceAllString(raw, " ")
-
-	splited := strings.Split(replaced, " ")
-	if len(splited) != 5 {
-		return A{}, fmt.Errorf("invalid format A record answer returned: %s", raw)
-	}
-
-	ttl, err := strconv.Atoi(splited[1])
-	if err != nil {
-		return A{}, fmt.Errorf("not numeric A ttl: %s", splited[1])
-	}
-
-	a := A{
-		TTL:    ttl,
-		Target: splited[4],
-	}
-
-	return a, nil
-}
-
-func ParseSRV(raw string) (SRV, error) {
-	whitespace := regexp.MustCompile(`\s+`)
-	replaced := whitespace.ReplaceAllString(raw, " ")
-
-	splited := strings.Split(replaced, " ")
-	if len(splited) != 8 {
-		return SRV{}, fmt.Errorf("invalid format SRV record answer returned: %s", raw)
-	}
-
-	priority, err := strconv.Atoi(splited[4])
-	if err != nil {
-		return SRV{}, fmt.Errorf("not numeric SRV Priority: %s", splited[4])
-	}
-	weight, err := strconv.Atoi(splited[5])
-	if err != nil {
-		return SRV{}, fmt.Errorf("not numeric SRV Weight: %s", splited[5])
-	}
-	port := splited[6]
-	target := splited[7]
-
-	ttl, err := strconv.Atoi(splited[1])
-	if err != nil {
-		return SRV{}, fmt.Errorf("not numeric SRV ttl: %s", splited[1])
-	}
-
-	return SRV{
-		Priority: priority,
-		Weight:   weight,
-		Port:     port,
-		Target:   target,
-		TTL:      ttl,
-	}, nil
 }
