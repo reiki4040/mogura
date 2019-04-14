@@ -6,7 +6,12 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"time"
+)
+
+const (
+	ENV_MOGURA_PASSPHRASE = "MOGURA_PASSPHRASE"
 )
 
 type MoguraConfig struct {
@@ -109,7 +114,8 @@ func (m *Mogura) ErrChan() <-chan error {
 }
 
 func (m *Mogura) ConnectSSH() error {
-	clientConfig, err := GenSSHClientConfig(m.Config.BastionHostPort, m.Config.Username, m.Config.KeyPath)
+	passphrase := os.Getenv(ENV_MOGURA_PASSPHRASE)
+	clientConfig, err := GenSSHClientConfig(m.Config.BastionHostPort, m.Config.Username, m.Config.KeyPath, passphrase)
 	if err != nil {
 		return fmt.Errorf("ssh config error: %v", err)
 	}

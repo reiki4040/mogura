@@ -7,14 +7,19 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func GenSSHClientConfig(hostport, username, keyPath string) (*ssh.ClientConfig, error) {
+func GenSSHClientConfig(hostport, username, keyPath, passphrase string) (*ssh.ClientConfig, error) {
 	key, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read private key: %v", err)
 	}
 
+	var signer ssh.Signer
+	if passphrase == "" {
+		signer, err = ssh.ParsePrivateKey(key)
+	} else {
+		signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(passphrase))
+	}
 	// Create the Signer for this private key.
-	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse private key: %v", err)
 	}

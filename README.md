@@ -76,6 +76,8 @@ tunnels:
     target_type: "SRV"
 ```
 
+if you use ssh private key with passphrase, then use `MOGURA_PASSPHRASE` environment variable.
+
 ### detail propeties
 
 bastion_ssh_config
