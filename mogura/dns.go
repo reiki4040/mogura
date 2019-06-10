@@ -82,6 +82,21 @@ func (d *DNSClient) QueryA(domain string) ([]*dns.A, error) {
 	return records, nil
 }
 
+func (d *DNSClient) QueryCNAME(domain string) ([]*dns.CNAME, error) {
+	dnsMsg, err := d.Query(domain, "CNAME")
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]*dns.CNAME, 0, len(dnsMsg.Answer))
+	for _, ans := range dnsMsg.Answer {
+		a := ans.(*dns.CNAME)
+		records = append(records, a)
+	}
+
+	return records, nil
+}
+
 func (d *DNSClient) QuerySRV(domain string) ([]*dns.SRV, error) {
 	dnsMsg, err := d.Query(domain, "SRV")
 	if err != nil {

@@ -23,6 +23,10 @@ func (t *Target) Validate() error {
 	}
 
 	switch t.TargetType {
+	case "CNAME-SRV":
+		if t.TargetPort != 0 {
+			return fmt.Errorf("target port is specifeid, however target type CNAME-SRV.")
+		}
 	case "SRV":
 		if t.TargetPort != 0 {
 			return fmt.Errorf("target port is specifeid, however target type SRV.")
@@ -40,6 +44,38 @@ func (t *Target) Validate() error {
 
 func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 	switch t.TargetType {
+	case "CNAME-SRV":
+		client := NewDNSClient(conn, resolver)
+		cnames, err := client.QueryCNAME(t.Target)
+		if err != nil {
+			return fmt.Errorf("failed CNAME query to remote DNS: %v", err)
+		}
+		if len(cnames) == 0 {
+			return fmt.Errorf("no answer %s", t.Target)
+		}
+
+		// resolve CNAME -> SRV -> A
+		// detect SRV, A record by myself.
+		srvRecords, err := client.QuerySRV(cnames[0].Target)
+		targets, err := client.QueryA(srvRecords[0].Target)
+		if err != nil {
+			return fmt.Errorf("failed %s A query to remote DNS: %v", srvRecords[0].Target, err)
+		}
+
+		if len(targets) == 0 {
+			return fmt.Errorf("%s answer is empty.", srvRecords[0].Target)
+		}
+
+		// TODO if priority are same, then shuffle
+		// TODO fix logging...
+		log.Printf("resolved CNAME record %s => %s", t.Target, cnames[0].Target)
+		log.Printf("resolved SRV record %s => %s:%d", t.Target, srvRecords[0].Target, srvRecords[0].Port)
+		log.Printf("resolved A record %s => %s", srvRecords[0].Target, targets[0].A.String())
+		t.resolvedTarget = targets[0].A.String()
+		t.resolvedPort = strconv.Itoa(int(srvRecords[0].Port))
+
+		// TODO start goroutine that resolve again after ttl
+		return nil
 	case "SRV":
 		client := NewDNSClient(conn, resolver)
 		srvs, err := client.QuerySRV(t.Target)
