@@ -25,7 +25,7 @@ brew tap reiki4040/mogura
 brew install mogura
 ```
 
-upgrade 
+upgrade
 
 ```
 brew update
@@ -96,6 +96,6 @@ property | context | sample value | default
 name | display name | nginx | "no name setting N"
 local_bind_port | binding local port | 8080 | Required
 target | target IP or Domain name | sample.your.domain | Required
-target_port | target port | 80 | Required. if set target_type is "SRV" then not specified.
-target_type | only use set target is SRV | SRV | Required if set target is SRV record
+target_port | target port | 80 | Required. if set target_type is "SRV" or "CNAME-SRV" then not specified.
+target_type | DNS type | SRV, CNAME-SRV | Required if set target is SRV record or CNAME record that SRV is wrapped.
 
