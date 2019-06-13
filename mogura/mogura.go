@@ -83,6 +83,14 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 					return
 				default:
 					m.errChan <- fmt.Errorf("remote dial failed: %v", err)
+
+					// not remote done? SSH connection is dead?
+					sshErr := m.ConnectSSH()
+					if sshErr != nil {
+						m.errChan <- fmt.Errorf("failed ssh reconnect: %v", sshErr)
+						return
+					}
+
 					continue
 				}
 			}
