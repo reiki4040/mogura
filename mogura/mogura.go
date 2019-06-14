@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -113,6 +114,8 @@ type Mogura struct {
 	localListener  net.Listener
 	detectedRemote string
 
+	sshMutex sync.Mutex
+
 	localDoneChan  chan struct{}
 	remoteDoneChan chan struct{}
 }
@@ -122,6 +125,9 @@ func (m *Mogura) ErrChan() <-chan error {
 }
 
 func (m *Mogura) ConnectSSH() error {
+	m.sshMutex.Lock()
+	defer m.sshMutex.Unlock()
+
 	passphrase := os.Getenv(ENV_MOGURA_PASSPHRASE)
 	clientConfig, err := GenSSHClientConfig(m.Config.BastionHostPort, m.Config.Username, m.Config.KeyPath, passphrase)
 	if err != nil {
@@ -129,10 +135,17 @@ func (m *Mogura) ConnectSSH() error {
 	}
 
 	// Setup sshClientConn (type *ssh.ClientConn)
-	m.sshClientConn, err = ssh.Dial("tcp", m.Config.BastionHostPort, clientConfig)
+	sshClientConn, err := ssh.Dial("tcp", m.Config.BastionHostPort, clientConfig)
 	if err != nil {
 		return fmt.Errorf("ssh.Dial failed: %v", err)
 	}
+
+	// close current connection before change new connection.
+	if m.sshClientConn != nil {
+		m.sshClientConn.Close()
+	}
+
+	m.sshClientConn = sshClientConn
 
 	return nil
 }
