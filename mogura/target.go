@@ -68,11 +68,17 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 
 		// TODO if priority are same, then shuffle
 		// TODO fix logging...
-		log.Printf("resolved CNAME record %s => %s", t.Target, cnames[0].Target)
-		log.Printf("resolved SRV record %s => %s:%d", t.Target, srvRecords[0].Target, srvRecords[0].Port)
-		log.Printf("resolved A record %s => %s", srvRecords[0].Target, targets[0].A.String())
-		t.resolvedTarget = targets[0].A.String()
-		t.resolvedPort = strconv.Itoa(int(srvRecords[0].Port))
+		newTarget := targets[0].A.String()
+		newPort := strconv.Itoa(int(srvRecords[0].Port))
+
+		if t.resolvedTarget != newTarget || t.resolvedPort != newPort {
+			log.Printf("resolved CNAME record %s => %s", t.Target, cnames[0].Target)
+			log.Printf("resolved SRV record %s => %s:%d", t.Target, srvRecords[0].Target, srvRecords[0].Port)
+			log.Printf("resolved A record %s => %s", srvRecords[0].Target, targets[0].A.String())
+
+			t.resolvedTarget = newTarget
+			t.resolvedPort = newPort
+		}
 
 		// TODO start goroutine that resolve again after ttl
 		return nil
@@ -99,10 +105,15 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 
 		// TODO if priority are same, then shuffle
 		// TODO fix logging...
-		log.Printf("resolved SRV record %s => %s:%d", t.Target, srvs[0].Target, srvs[0].Port)
-		log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0].A.String())
-		t.resolvedTarget = targets[0].A.String()
-		t.resolvedPort = strconv.Itoa(int(srvs[0].Port))
+		newTarget := targets[0].A.String()
+		newPort := strconv.Itoa(int(srvs[0].Port))
+		if t.resolvedTarget != newTarget || t.resolvedPort != newPort {
+			log.Printf("resolved SRV record %s => %s:%d", t.Target, srvs[0].Target, srvs[0].Port)
+			log.Printf("resolved A record %s => %s", srvs[0].Target, targets[0].A.String())
+
+			t.resolvedTarget = newTarget
+			t.resolvedPort = newPort
+		}
 
 		// TODO start goroutine that resolve again after ttl
 		return nil
