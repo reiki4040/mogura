@@ -13,6 +13,8 @@ import (
 
 const (
 	ENV_MOGURA_PASSPHRASE = "MOGURA_PASSPHRASE"
+
+	REMOTE_RESOLVE_MAX_RETRY = 3
 )
 
 type MoguraConfig struct {
@@ -165,10 +167,22 @@ func (m *Mogura) GoResolveCycle(interval int64) <-chan error {
 	errChan := make(chan error)
 	tick := time.Tick(time.Duration(interval) * time.Second)
 	go func() {
+		retryCount := 0
 		for _ = range tick {
 			err := m.ResolveRemote()
 			if err != nil {
+				retryCount++
 				errChan <- err
+				if retryCount > REMOTE_RESOLVE_MAX_RETRY {
+					errChan <- fmt.Errorf("resolve remote retry failed over %d times. it maybe will not recover it. stop mogura and check configuration", REMOTE_RESOLVE_MAX_RETRY)
+				} else {
+					sshErr := m.ConnectSSH()
+					if sshErr != nil {
+						errChan <- fmt.Errorf("remote resolver failed and then ssh reconnect but failed: %v", sshErr)
+					}
+				}
+			} else {
+				retryCount = 0
 			}
 		}
 	}()
