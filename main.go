@@ -175,18 +175,20 @@ func main() {
 				currently, user self stop and connection not close handling...
 			*/
 			log.Printf("start %s tunnel failed: %v", t.Name, err)
-		} else {
-			// show transfer error
-			go func(t TunnelConfig) {
-				for tErr := range mogura.ErrChan() {
-					/*
-					 TODO if too many got error then reconnection?
-					 use mogura.ConnectSSH(), mogura.ResolveRemote(), mogura.Listen()
-					*/
-					log.Printf("%s tunnel transfer failed: %v", t.Name, tErr)
-				}
-			}(t)
+
+			continue
 		}
+
+		// show transfer error
+		go func(t TunnelConfig) {
+			for tErr := range mogura.ErrChan() {
+				/*
+				 TODO if too many got error then reconnection?
+				 use mogura.ConnectSSH(), mogura.ResolveRemote(), mogura.Listen()
+				*/
+				log.Printf("%s tunnel transfer failed: %v", t.Name, tErr)
+			}
+		}(t)
 
 		// set map for control
 		moguraMap[t.Name] = mogura
