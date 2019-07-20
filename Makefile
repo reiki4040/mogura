@@ -1,5 +1,5 @@
 NAME      := mogura
-VERSION   := 0.1.3
+VERSION   := 0.1.4
 HASH      := $(shell git rev-parse --short HEAD)
 GOVERSION := $(shell go version)
 
