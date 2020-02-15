@@ -1,0 +1,46 @@
+project_name: mogura
+env:
+  - GO111MODULE=on
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - main: .
+    binary: mogura
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.revision={{.ShortCommit}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    replacements:
+      darwin: darwin
+      linux: linux
+      windows: windows
+      386: i386
+      amd64: x86_64
+    format_overrides:
+      - goos: windows
+        format: zip
+release:
+  prerelease: auto
+
+# homebrew
+brews:
+  - description: "ssh tunneling tool"
+    github:
+      owner: reiki4040
+      name: homebrew-tap
+    homepage: "https://github.com/reiki4040/mogura"
+    install: |
+      bin.install "mogura"
+   # caveats: |
+    #custom_block: # later use for devel version

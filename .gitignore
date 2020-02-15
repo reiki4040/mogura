@@ -2,3 +2,4 @@
 .vagrant/*
 bin/*
 config.yml
+dist/
