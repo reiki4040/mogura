@@ -29,3 +29,7 @@ win-build:
 .PHONY: docker-build
 docker-build:
 	docker build -t $(NAME):$(VERSION) .
+
+.PHONY: test-goreleaser
+test-goreleaser:
+	 goreleaser --snapshot --skip-publish --rm-dist

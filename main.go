@@ -19,7 +19,7 @@ usage:
   mogura [-config config.yml] 
 
 options:
-  -v: show version, hash, go version.
+  -v: show version, revision, go version.
   -h: show this usage.
 
   -config: specified tunnel configuration file. default ~/.mogura/config.yml
@@ -30,9 +30,8 @@ options:
 
 var (
 	// for version info
-	version   string
-	hash      string
-	goversion string
+	version  string
+	revision string
 
 	showVer           bool
 	showUsage         bool
@@ -52,7 +51,7 @@ func usage() {
 }
 
 func showVersion() {
-	fmt.Printf("%s (%s) %s\n", version, hash, goversion)
+	fmt.Printf("%s (%s)", version, revision)
 }
 
 func main() {
