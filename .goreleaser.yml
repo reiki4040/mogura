@@ -35,29 +35,12 @@ release:
 
 # homebrew
 brews:
-  - description: "Useful tool for EC2."
+  - description: "ssh tunneling tool"
     github:
       owner: reiki4040
       name: homebrew-tap
     homepage: "https://github.com/reiki4040/mogura"
     install: |
       bin.install "mogura"
-    caveats: |
-      # mogura need AWS access key for working.
-      # Please set key/secret to AWS credentials (~/.aws/credentials)
-
-      [default]
-      aws_access_key_id=your_key_id
-      aws_secret_access_key=your_secret
-
-      # or environment variable for AWS connection.
-      # (~/.bashrc, ~/.zshrc or other.)
-
-      export AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY
-      export AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_ACCESS_KEY
-
-      # you can set default aws region.
-
-      mogura init
-
+   # caveats: |
     #custom_block: # later use for devel version
