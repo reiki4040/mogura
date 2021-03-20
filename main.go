@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"time"
 
 	"github.com/reiki4040/mogura/mogura"
 )
@@ -132,10 +133,16 @@ func main() {
 
 		localHostPort := localport(t.LocalBindPort)
 
+		connTimeoutDuration, parseErr := time.ParseDuration(t.ConnectionTimeout)
+		if parseErr != nil {
+			log.Printf("ERROR tunnel %s: target connection timeout format is invalid: %v, set default time %v", name, parseErr, DEFAULT_TUNNEL_CONNECTION_TIMEOUT)
+			connTimeoutDuration = DEFAULT_TUNNEL_CONNECTION_TIMEOUT
+		}
 		target := mogura.Target{
-			TargetType: t.TargetType,
-			Target:     t.Target,
-			TargetPort: t.TargetPort,
+			TargetType:        t.TargetType,
+			Target:            t.Target,
+			TargetPort:        t.TargetPort,
+			ConnectionTimeout: connTimeoutDuration,
 		}
 		err := target.Validate()
 		if err != nil {
@@ -166,7 +173,7 @@ func main() {
 			forwardingTarget += ":" + strconv.Itoa(t.TargetPort)
 		}
 		log.Printf("starting tunnel %s", moguraConfig.Name)
-		log.Printf("%s -> %s -> %s", localHostPort, bastionHostPort, forwardingTarget)
+		log.Printf("%s -> %s -> %s with timeout %v", localHostPort, bastionHostPort, forwardingTarget, connTimeoutDuration)
 		mogura, err := mogura.GoMogura(moguraConfig)
 		if err != nil {
 			/*
