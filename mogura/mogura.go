@@ -256,19 +256,36 @@ func (m *Mogura) Close() error {
 }
 
 func forward(localConn, sshConn net.Conn, errChan chan<- error) {
+	wg := &sync.WaitGroup{}
+
 	// Copy localConn.Reader to sshConn.Writer
-	go func() {
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
 		_, err := io.Copy(sshConn, localConn)
 		if err != nil {
 			errChan <- fmt.Errorf("local -> remote transfer failed: %v", err)
 		}
-	}()
+		wg.Done()
+	}(wg)
 
 	// Copy sshConn.Reader to localConn.Writer
-	go func() {
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
 		_, err := io.Copy(localConn, sshConn)
 		if err != nil {
 			errChan <- fmt.Errorf("remote -> local transfer failed: %v", err)
 		}
-	}()
+		wg.Done()
+	}(wg)
+
+	// waiting for forwarding... and close connections.
+	wg.Wait()
+	err := localConn.Close()
+	if err != nil {
+		errChan <- fmt.Errorf("forwarding end however failed close local conn: %v", err)
+	}
+	err = sshConn.Close()
+	if err != nil {
+		errChan <- fmt.Errorf("forwarding end, however failed close ssh conn: %v", err)
+	}
 }
