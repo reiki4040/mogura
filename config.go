@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	DEFAULT_TUNNEL_CONNECTION_TIMEOUT = time.Second * 10
+	DEFAULT_TUNNEL_CONNECTION_TIMEOUT = time.Second * 5
 )
 
 func GetMoguraDir() string {
