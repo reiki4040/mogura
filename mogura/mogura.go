@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -87,7 +88,19 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 				case <-m.remoteDoneChan:
 					return
 				default:
-					m.errChan <- fmt.Errorf("remote dial failed: %v", err)
+					// if not allowed forwarding in remote server by sshd config or SELinux, etc...
+					if strings.Contains(err.Error(), "administratively prohibited") {
+						m.errChan <- fmt.Errorf("remote server does not allowed forwarding, please check sshd config or SELinux settings and more. original error: %v", err)
+
+						// close local listener connection that already accepted. client request wait forever if this close forgot.
+						localConn.Close()
+
+						// close local listener and remote connection. client can request to listener and wait forever if this close forgot.
+						m.Close()
+						return
+					} else {
+						m.errChan <- fmt.Errorf("remote dial failed: %v", err)
+					}
 
 					// not remote done? SSH connection is dead?
 					sshErr := m.ConnectSSH()
@@ -210,10 +223,11 @@ func (m *Mogura) ResolveRemote() error {
 }
 
 func (m *Mogura) CloseLocalConn() error {
-	close(m.localDoneChan)
-
 	var lErr error
 	if m.localListener != nil {
+		if m.localDoneChan != nil {
+			close(m.localDoneChan)
+		}
 		lErr = m.localListener.Close()
 	}
 
@@ -221,14 +235,16 @@ func (m *Mogura) CloseLocalConn() error {
 		return fmt.Errorf("failed close local listener: %v", lErr)
 	}
 
+	m.localListener = nil
 	return nil
 }
 
 func (m *Mogura) CloseRemoteConn() error {
-	close(m.remoteDoneChan)
-
 	var rErr error
 	if m.sshClientConn != nil {
+		if m.remoteDoneChan != nil {
+			close(m.remoteDoneChan)
+		}
 		rErr = m.sshClientConn.Close()
 	}
 
@@ -236,6 +252,7 @@ func (m *Mogura) CloseRemoteConn() error {
 		return fmt.Errorf("failed close ssh connection: %v", rErr)
 	}
 
+	m.sshClientConn = nil
 	return nil
 }
 
