@@ -291,12 +291,13 @@ func forward(ctx context.Context, localConn, sshConn net.Conn, timeout time.Dura
 
 	// waiting for forwarding... and close connections.
 	select {
-	// forwarding done with success
+	// forwarding IO error
 	case <-done:
-		// none
-	// cancel with timeout
+		// currently it can not know finished forwarding. so it is process here when only happened errors in forwarding.
+		errChan <- fmt.Errorf("got forwarding errors before timeout.")
+	// timeout
 	case <-ctx.Done():
-		errChan <- fmt.Errorf("forwarding timeout over %v", timeout)
+		// basically proceed here with timeout, because currently it can not know that finished forwarding IO.
 	}
 
 	err := localConn.Close()
