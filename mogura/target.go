@@ -13,7 +13,7 @@ type Target struct {
 	Target     string
 	TargetPort int
 
-	ConnectionTimeout time.Duration
+	ForwardingTimeout time.Duration
 
 	resolvedTarget string
 	resolvedPort   string

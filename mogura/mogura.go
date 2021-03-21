@@ -101,7 +101,7 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			}
 
 			// go forwarding
-			timeout := m.Config.ForwardingTarget.ConnectionTimeout
+			timeout := m.Config.ForwardingTarget.ForwardingTimeout
 			go forward(ctx, localConn, sshConn, timeout, m.errChan)
 		}
 	}(ctx)

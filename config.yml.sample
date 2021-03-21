@@ -15,7 +15,7 @@ tunnels:
     local_bind_port: 8081
     target_type: SRV
     target: _grpclb._tcp.unknown.localhost
-    connection_timeout: 10s
+    forwarding_timeout: 10s
 ## below example for SRV record
 #  - name: ecs_service
 #    local_bind_port: 8081
