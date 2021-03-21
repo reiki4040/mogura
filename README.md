@@ -50,10 +50,12 @@ tunnels:
     local_bind_port: 8080
     target: nginx.your.private.domain
     target_port: 80
+    connection_timeout: 5s # duration format. if not defined then default timeout 5s
   - name: rds-mysql
     local_bind_port: 3306
     target: db.your.private.domain
     target_port: 3306
+    connection_timeout: 5m
 ```
 
 example for ECS that set service discovery to SRV record
@@ -99,4 +101,6 @@ local_bind_port | binding local port | 8080 | Required
 target | target IP or Domain name | sample.your.domain | Required
 target_port | target port | 80 | Required. if set target_type is "SRV" or "CNAME-SRV" then not specified.
 target_type | DNS type | SRV, CNAME-SRV | Required if set target is SRV record or CNAME record that SRV is wrapped.
+connection_timeout ** | connection timeout | 5s, 1m |  Optional, forwarding connection timeout, default 5s. must set longer time if keep connection over 5s(default). ex. gRPC stream.
 
+** connection uses file descriptor. if set long time and many request then use many file descriptor and got too many open files error. please increase ulimit or shorter connection timeout.
