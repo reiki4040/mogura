@@ -133,11 +133,17 @@ func main() {
 
 		localHostPort := localport(t.LocalBindPort)
 
-		forwardingTimeoutDuration, parseErr := time.ParseDuration(t.ForwardingTimeout)
-		if parseErr != nil {
-			log.Printf("ERROR tunnel %s: target connection timeout format is invalid: %v, set default time %v", name, parseErr, DEFAULT_FORWARDING_TIMEOUT)
-			forwardingTimeoutDuration = DEFAULT_FORWARDING_TIMEOUT
+		forwardingTimeoutDuration := DEFAULT_FORWARDING_TIMEOUT
+		if t.ForwardingTimeout != "" {
+			d, parseErr := time.ParseDuration(t.ForwardingTimeout)
+			if parseErr != nil {
+				log.Printf("WARN tunnel %s: target forwarding timeout format is invalid: %v, set default time %v", name, parseErr, DEFAULT_FORWARDING_TIMEOUT)
+				forwardingTimeoutDuration = DEFAULT_FORWARDING_TIMEOUT
+			} else {
+				forwardingTimeoutDuration = d
+			}
 		}
+
 		target := mogura.Target{
 			TargetType:        t.TargetType,
 			Target:            t.Target,
