@@ -138,7 +138,6 @@ func main() {
 			d, parseErr := time.ParseDuration(t.ForwardingTimeout)
 			if parseErr != nil {
 				log.Printf("WARN tunnel %s: target forwarding timeout format is invalid: %v, set default time %v", name, parseErr, DEFAULT_FORWARDING_TIMEOUT)
-				forwardingTimeoutDuration = DEFAULT_FORWARDING_TIMEOUT
 			} else {
 				forwardingTimeoutDuration = d
 			}
