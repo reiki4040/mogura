@@ -187,6 +187,7 @@ func main() {
 			*/
 			log.Printf("start %s tunnel failed: %v", t.Name, err)
 
+			skipCount++
 			continue
 		}
 

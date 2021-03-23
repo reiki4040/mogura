@@ -62,6 +62,19 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 		}
 	}()
 
+	// test ssh connection fowarding
+	testSshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
+	if err != nil {
+		// close local listener and remote connection. client can request to listener and wait forever if this close forgot.
+		m.Close()
+		if strings.Contains(err.Error(), "administratively prohibited") {
+			return nil, fmt.Errorf("remote server does not allowed forwarding, please check sshd config or SELinux settings and more. original error: %v", err)
+		} else {
+			return nil, fmt.Errorf("remote dial test failed: %v", err)
+		}
+	}
+	testSshConn.Close()
+
 	ctx := context.TODO()
 	// go accept loop
 	go func(ctx context.Context) {
