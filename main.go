@@ -108,7 +108,7 @@ func main() {
 	}
 
 	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
-	skipCount := 0
+	openedTunnelCount := 0
 	portMap := make(map[int]struct{}, len(c.Tunnels))
 	for i, t := range c.Tunnels {
 		name := t.Name
@@ -118,7 +118,6 @@ func main() {
 
 		if t.LocalBindPort == 0 {
 			log.Printf("ERROR tunnel %s: missing local_bind_port, skip.", name)
-			skipCount++
 			continue
 		}
 
@@ -152,14 +151,12 @@ func main() {
 		err := target.Validate()
 		if err != nil {
 			log.Printf("ERROR tunnel %s: invalid tunnel target: %v, skip.", name, err)
-			skipCount++
 			continue
 		}
 
 		if t.TargetType == "SRV" {
 			if c.Bastion.RemoteDNS == "" {
 				log.Printf("ERROR tunnel %s: remote_dns is required when target type is SRV, skip.", name)
-				skipCount++
 				continue
 			}
 		}
@@ -187,7 +184,6 @@ func main() {
 			*/
 			log.Printf("start %s tunnel failed: %v", t.Name, err)
 
-			skipCount++
 			continue
 		}
 
@@ -202,17 +198,18 @@ func main() {
 			}
 		}(t)
 
+		openedTunnelCount++
 		// set map for control
 		moguraMap[t.Name] = mogura
 		log.Printf("started tunnel %s", mogura.Config.Name)
 	}
 
 	// all tunnel is wrong
-	if skipCount == len(c.Tunnels) {
+	if openedTunnelCount == 0 {
 		log.Fatalf("all tunnels are invalid. mogura was not started.")
 	}
 
-	if skipCount > 0 {
+	if openedTunnelCount < len(c.Tunnels) {
 		log.Printf("some tunnels are invalid. those tunnel were not started.")
 	}
 
