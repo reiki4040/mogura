@@ -8,6 +8,11 @@ import (
 	"os/user"
 	"strconv"
 	"strings"
+	"time"
+)
+
+var (
+	DEFAULT_FORWARDING_TIMEOUT = time.Second * 5
 )
 
 func GetMoguraDir() string {
@@ -38,6 +43,8 @@ type TunnelConfig struct {
 	TargetType    string `yaml:"target_type"`
 	Target        string `yaml:"target"`
 	TargetPort    int    `yaml:"target_port"`
+
+	ForwardingTimeout string `yaml:"forwarding_timeout"`
 }
 
 func LoadConfig(path string) (*Config, error) {

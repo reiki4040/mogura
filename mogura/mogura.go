@@ -1,6 +1,7 @@
 package mogura
 
 import (
+	"context"
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -60,8 +61,9 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 		}
 	}()
 
+	ctx := context.TODO()
 	// go accept loop
-	go func() {
+	go func(ctx context.Context) {
 		for {
 			// Setup localConn (type net.Conn)
 			// closed check logic refs:
@@ -99,9 +101,10 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			}
 
 			// go forwarding
-			go forward(localConn, sshConn, m.errChan)
+			timeout := m.Config.ForwardingTarget.ForwardingTimeout
+			go forward(ctx, localConn, sshConn, timeout, m.errChan)
 		}
-	}()
+	}(ctx)
 
 	return m, nil
 }
@@ -255,20 +258,54 @@ func (m *Mogura) Close() error {
 	return nil
 }
 
-func forward(localConn, sshConn net.Conn, errChan chan<- error) {
+func forward(ctx context.Context, localConn, sshConn net.Conn, timeout time.Duration, errChan chan<- error) {
+	wg := &sync.WaitGroup{}
+	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
+
 	// Copy localConn.Reader to sshConn.Writer
-	go func() {
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
 		_, err := io.Copy(sshConn, localConn)
 		if err != nil {
 			errChan <- fmt.Errorf("local -> remote transfer failed: %v", err)
 		}
-	}()
+		wg.Done()
+	}(wg)
 
 	// Copy sshConn.Reader to localConn.Writer
-	go func() {
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
 		_, err := io.Copy(localConn, sshConn)
 		if err != nil {
 			errChan <- fmt.Errorf("remote -> local transfer failed: %v", err)
 		}
+		wg.Done()
+	}(wg)
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		cancelFunc()
+		close(done)
 	}()
+
+	// waiting for forwarding... and close connections.
+	select {
+	// forwarding IO error
+	case <-done:
+		// currently it can not know finished forwarding. so it is process here when only happened errors in forwarding.
+		errChan <- fmt.Errorf("got forwarding errors before timeout.")
+	// timeout
+	case <-ctx.Done():
+		// basically proceed here with timeout, because currently it can not know that finished forwarding IO.
+	}
+
+	err := localConn.Close()
+	if err != nil {
+		errChan <- fmt.Errorf("forwarding end however failed close local conn: %v", err)
+	}
+	err = sshConn.Close()
+	if err != nil {
+		errChan <- fmt.Errorf("forwarding end, however failed close ssh conn: %v", err)
+	}
 }

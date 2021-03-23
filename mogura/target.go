@@ -5,12 +5,15 @@ import (
 	"golang.org/x/crypto/ssh"
 	"log"
 	"strconv"
+	"time"
 )
 
 type Target struct {
 	TargetType string
 	Target     string
 	TargetPort int
+
+	ForwardingTimeout time.Duration
 
 	resolvedTarget string
 	resolvedPort   string
