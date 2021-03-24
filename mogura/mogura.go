@@ -99,6 +99,7 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 			if err != nil {
 				select {
 				case <-m.remoteDoneChan:
+					localConn.Close()
 					return
 				default:
 					// if not allowed forwarding in remote server by sshd config or SELinux, etc...
@@ -119,9 +120,9 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 					sshErr := m.ConnectSSH()
 					if sshErr != nil {
 						m.errChan <- fmt.Errorf("failed ssh reconnect: %v", sshErr)
-						return
 					}
 
+					localConn.Close()
 					continue
 				}
 			}
