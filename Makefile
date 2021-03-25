@@ -33,3 +33,15 @@ docker-build:
 .PHONY: test-goreleaser
 test-goreleaser:
 	 goreleaser --snapshot --skip-publish --rm-dist
+
+.PHONY: build-test-docker-image
+build-test-docker-image:
+	docker build -f local-env/Dockerfile.ssh-server -t mogura-bastion:0.1.0 .
+
+.PHONY: launch-test-servers
+launch-test-servers: build-test-docker-image
+	docker-compose -f local-env/docker-compose.yml up
+
+.PHONY: launch-test-mogura
+launch-test-mogura:
+	bin/mogura -config config.yml.sample

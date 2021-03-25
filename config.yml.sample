@@ -2,24 +2,21 @@ bastion_ssh_config:
   name: bastion     # optional default is "Bastion"
   host: localhost
   port: 2222        # optional default is 22
-  user: vagrant
-  key_path: .vagrant/machines/bastion/virtualbox/private_key  # optional default is "~/.ssh/id_rsa"
+  user: mogura
+  key_path: ./local-env/test_id_ed25519  # optional default is "~/.ssh/id_rsa"
   # if your use SRV record, then need set remote resolver to 'remote_dns'.
-  remote_dns: 8.8.8.8:53
+  # AWS VPC network 10.0.0.0/16 then DNS server is 10.0.0.2
+#  remote_dns: 10.0.0.2:53
 tunnels:
   - name: nginx
     local_bind_port: 8080
-    target: 192.168.50.6
+    target: web-server
     target_port: 80
-  - name: unknown
-    local_bind_port: 8081
-    target_type: SRV
-    target: _grpclb._tcp.unknown.localhost
-    forwarding_timeout: 10s
 ## below example for SRV record
 #  - name: ecs_service
 #    local_bind_port: 8081
 #    target_type: SRV
 #    target: _grpclb._tcp.your.domain
+#    forwarding_timeout: 10s
 
 
