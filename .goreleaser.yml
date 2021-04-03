@@ -36,7 +36,7 @@ release:
 # homebrew
 brews:
   - description: "ssh tunneling tool"
-    github:
+    tap:
       owner: reiki4040
       name: homebrew-tap
     homepage: "https://github.com/reiki4040/mogura"
