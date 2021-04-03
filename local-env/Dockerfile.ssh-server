@@ -1,0 +1,26 @@
+# modified allow tcp forwarding YES
+# from  https://github.com/linuxserver/docker-openssh-server/blob/master/Dockerfile
+FROM ghcr.io/linuxserver/openssh-server
+
+RUN \
+ echo "**** install runtime packages ****" && \
+ apk add --no-cache --upgrade \
+	curl \
+	logrotate \
+	nano \
+	sudo && \
+ echo "**** install openssh-server ****" && \
+ if [ -z ${OPENSSH_RELEASE+x} ]; then \
+	OPENSSH_RELEASE=$(curl -s http://dl-cdn.alpinelinux.org/alpine/v3.13/main/x86_64/ \
+	| awk -F '(openssh-server-|.apk)' '/openssh-server.*.apk/ {print $2; exit}'); \
+ fi && \
+ apk add --no-cache \
+	openssh-client==${OPENSSH_RELEASE} \
+	openssh-server==${OPENSSH_RELEASE} \
+	openssh-sftp-server==${OPENSSH_RELEASE} && \
+ echo "**** setup openssh environment ****" && \
+ sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config && \
+ sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/g' /etc/ssh/sshd_config && \
+ usermod --shell /bin/bash abc && \
+ rm -rf \
+	/tmp/*
