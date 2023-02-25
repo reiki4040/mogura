@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/reiki4040/dns"
+	"github.com/miekg/dns"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -22,7 +22,6 @@ type DNSClient struct {
 
 func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 	co := new(dns.Conn)
-	co.ForceTCP = true
 	var err error
 	if co.Conn, err = d.sshClientConn.Dial("tcp4", d.remoteDNS); err != nil {
 		return nil, err
