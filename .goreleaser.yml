@@ -40,7 +40,7 @@ changelog:
 # homebrew
 brews:
   - description: "ssh tunneling tool"
-    tap:
+    repository:
       owner: reiki4040
       name: homebrew-tap
       token: "{{ .Env.GH_PAT }}"
