@@ -1,5 +1,5 @@
 # from https://github.com/linuxserver/docker-openssh-server
-version: "2.1"
+version: "3.9"
 services:
   openssh-server:
     image: mogura-bastion:0.1.0
@@ -7,22 +7,22 @@ services:
     #container_name: openssh-server
     hostname: openssh-server #optional
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Tokyo/Japan
+      PUID: 1000
+      PGID: 1000
+      TZ: "Tokyo/Japan"
+      SUDO_ACCESS: true #optional
+      PASSWORD_ACCESS: false #optional
+      USER_NAME: "mogura" #optional
+      PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIa3Uf7s+t0E9cON+EMuQkNXhLNEDJobWr0ZKAzq0c85 root@85456cd13f85"
 # PUBLIC_KEY does not quote "", if set then failed ssh.
-      - PUBLIC_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIa3Uf7s+t0E9cON+EMuQkNXhLNEDJobWr0ZKAzq0c85 root@85456cd13f85
-#      - PUBLIC_KEY_FILE=./test_rsa.pub #optiona
-#      - PUBLIC_KEY_DIR=/path/to/directory/containing/_only_/pubkeys #optional
-      - SUDO_ACCESS=true #optional
-      - PASSWORD_ACCESS=false #optional
-#      - USER_PASSWORD=password #optional
-#      - USER_PASSWORD_FILE=/path/to/file #optional
-      - USER_NAME=mogura #optional
+#      PUBLIC_KEY_FILE=./test_rsa.pub #optiona
+#      PUBLIC_KEY_DIR=/path/to/directory/containing/_only_/pubkeys #optional
+#      USER_PASSWORD=password #optional
+#      USER_PASSWORD_FILE=/path/to/file #optional
 #    volumes:
 #      - ./allow_forward_sshd_config:/config
     ports:
-      - 2222:2222
+      - "2222:2222"
     restart: unless-stopped
 
   nginx:

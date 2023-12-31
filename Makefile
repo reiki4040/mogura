@@ -36,7 +36,7 @@ test-goreleaser:
 
 .PHONY: build-test-docker-image
 build-test-docker-image:
-	docker build -f local-env/Dockerfile.ssh-server -t mogura-bastion:0.1.0 .
+	docker build -f local-env/Dockerfile.ssh-server.aarch64 -t mogura-bastion:0.1.0 .
 
 .PHONY: launch-test-servers
 launch-test-servers: build-test-docker-image
