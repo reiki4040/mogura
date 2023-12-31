@@ -32,7 +32,7 @@ docker-build:
 
 .PHONY: test-goreleaser
 test-goreleaser:
-	goreleaser --snapshot --skip-publish --clean
+	goreleaser --snapshot --skip=publish --clean
 
 .PHONY: build-test-docker-image
 build-test-docker-image:
