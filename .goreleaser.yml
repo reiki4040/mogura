@@ -32,6 +32,11 @@ archives:
 release:
   prerelease: auto
 
+# https://goreleaser.com/customization/changelog/
+# disabled auto create changelog from commit message.
+changelog:
+  skip: true
+
 # homebrew
 brews:
   - description: "ssh tunneling tool"
