@@ -40,7 +40,7 @@ build-test-docker-image:
 
 .PHONY: launch-test-servers
 launch-test-servers: build-test-docker-image
-	docker-compose -f local-env/docker-compose.yml up
+	docker compose -f local-env/docker-compose.yml up
 
 .PHONY: launch-test-mogura
 launch-test-mogura:
