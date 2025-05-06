@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -215,10 +216,12 @@ func main() {
 
 	log.Printf("mogura is started. mogura stop with press Ctrl+C")
 
-	// waiting Ctrl + C
-	quit := make(chan os.Signal)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	// Create a context that will be canceled on SIGINT
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	// Wait for the interrupt signal
+	<-ctx.Done()
 	log.Printf("stopping mogura because got signal...")
 	for n, m := range moguraMap {
 		m.Close()
