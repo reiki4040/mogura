@@ -24,7 +24,8 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
           repositories: homebrew-tap
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        # v6.4.0: 2025/08/14 e435ccd777264be153ace6237001ef4d979d3a7a set at 2025/11/24
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a
         with:
           distribution: goreleaser
           version: '~> v1'
