@@ -1,3 +1,4 @@
+version: 2
 project_name: mogura
 env:
   - GO111MODULE=on
@@ -28,14 +29,14 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 release:
   prerelease: auto
 
 # https://goreleaser.com/customization/changelog/
 # disabled auto create changelog from commit message.
 changelog:
-  skip: true
+  disable: true
 
 # homebrew
 brews:
