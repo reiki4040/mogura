@@ -2,8 +2,8 @@ package mogura
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"log"
 	"net"
@@ -11,13 +11,22 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const (
 	ENV_MOGURA_PASSPHRASE = "MOGURA_PASSPHRASE"
 
 	WarningThresholdForRetrying = 3
+
+	// resolveInterval is how often the remote target is resolved again.
+	resolveInterval = 10 * time.Second
 )
+
+// errClosed is returned when mogura is asked to use a connection it has
+// already closed.
+var errClosed = errors.New("mogura is closed")
 
 type MoguraConfig struct {
 	Name             string
@@ -48,25 +57,39 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 
 	err = m.Listen()
 	if err != nil {
+		// the ssh connection is already open, it must not be left behind.
+		m.Close()
 		return nil, err
 	}
 
 	err = m.ResolveRemote()
 	if err != nil {
+		// the local port is already bound, it must not be left behind.
+		m.Close()
 		return nil, err
 	}
 
 	m.errChan = make(chan error)
-	resolveErrChan := m.GoResolveCycle(10)
+	resolveErrChan := m.GoResolveCycle(resolveInterval)
 	go func() {
 		// chain error channel
 		for e := range resolveErrChan {
-			m.errChan <- e
+			select {
+			case m.errChan <- e:
+			case <-m.remoteDoneChan:
+				return
+			}
 		}
 	}()
 
 	// test ssh connection fowarding
-	testSshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
+	client, remote, err := m.connection()
+	if err != nil {
+		m.Close()
+		return nil, err
+	}
+
+	testSshConn, err := client.Dial("tcp", remote)
 	if err != nil {
 		// close local listener and remote connection. client can request to listener and wait forever if this close forgot.
 		m.Close()
@@ -82,10 +105,16 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 	// go accept loop
 	go func(ctx context.Context) {
 		for {
+			listener, err := m.listener()
+			if err != nil {
+				// mogura was closed.
+				return
+			}
+
 			// Setup localConn (type net.Conn)
 			// closed check logic refs:
 			// https://stackoverflow.com/questions/13417095/how-do-i-stop-a-listening-server-in-go
-			localConn, err := m.localListener.Accept()
+			localConn, err := listener.Accept()
 			if err != nil {
 				select {
 				case <-m.localDoneChan:
@@ -97,8 +126,14 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 				}
 			}
 
+			client, remote, err := m.connection()
+			if err != nil {
+				localConn.Close()
+				return
+			}
+
 			// Setup sshConn (type net.Conn)
-			sshConn, err := m.sshClientConn.Dial("tcp", m.detectedRemote)
+			sshConn, err := client.Dial("tcp", remote)
 			if err != nil {
 				select {
 				case <-m.remoteDoneChan:
@@ -122,6 +157,10 @@ func GoMogura(c MoguraConfig) (*Mogura, error) {
 					// not remote done? SSH connection is dead?
 					sshErr := m.ConnectSSH()
 					if sshErr != nil {
+						if errors.Is(sshErr, errClosed) {
+							localConn.Close()
+							return
+						}
 						m.errChan <- fmt.Errorf("failed ssh reconnect: %v", sshErr)
 					}
 
@@ -144,24 +183,77 @@ type Mogura struct {
 
 	errChan chan error
 
-	// internal
+	// connectMu serializes reconnects. it is held across ssh.Dial, so that two
+	// goroutines do not open a connection at the same time.
+	connectMu sync.Mutex
+
+	// stateMu guards the fields below. it is never held across a network call,
+	// the accept loop must not wait for a reconnect to finish.
+	stateMu        sync.Mutex
 	sshClientConn  *ssh.Client
 	localListener  net.Listener
 	detectedRemote string
+	closed         bool
 
-	sshMutex sync.Mutex
-
-	localDoneChan  chan struct{}
-	remoteDoneChan chan struct{}
+	localDoneChan   chan struct{}
+	remoteDoneChan  chan struct{}
+	localCloseOnce  sync.Once
+	remoteCloseOnce sync.Once
 }
 
 func (m *Mogura) ErrChan() <-chan error {
 	return m.errChan
 }
 
+// connection returns the ssh client and the address to forward to as one
+// consistent pair, so that the caller can not mix a client with an address
+// that was resolved for another one.
+func (m *Mogura) connection() (*ssh.Client, string, error) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	if m.sshClientConn == nil {
+		return nil, "", errClosed
+	}
+
+	return m.sshClientConn, m.detectedRemote, nil
+}
+
+func (m *Mogura) client() (*ssh.Client, error) {
+	client, _, err := m.connection()
+
+	return client, err
+}
+
+func (m *Mogura) listener() (net.Listener, error) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	if m.localListener == nil {
+		return nil, errClosed
+	}
+
+	return m.localListener, nil
+}
+
+// setDetectedRemote stores addr and reports the address it replaced, so that
+// the caller can log the change without holding the lock.
+func (m *Mogura) setDetectedRemote(addr string) (string, bool) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	previous := m.detectedRemote
+	if addr == "" || addr == previous {
+		return previous, false
+	}
+	m.detectedRemote = addr
+
+	return previous, true
+}
+
 func (m *Mogura) ConnectSSH() error {
-	m.sshMutex.Lock()
-	defer m.sshMutex.Unlock()
+	m.connectMu.Lock()
+	defer m.connectMu.Unlock()
 
 	passphrase := os.Getenv(ENV_MOGURA_PASSPHRASE)
 	clientConfig, err := GenSSHClientConfig(SSHClientOption{
@@ -182,48 +274,86 @@ func (m *Mogura) ConnectSSH() error {
 		return fmt.Errorf("ssh.Dial failed: %v", err)
 	}
 
-	// close current connection before change new connection.
-	if m.sshClientConn != nil {
-		m.sshClientConn.Close()
-	}
+	m.stateMu.Lock()
+	if m.closed {
+		m.stateMu.Unlock()
+		// mogura was closed while dialing. this connection must not revive it.
+		sshClientConn.Close()
 
+		return errClosed
+	}
+	current := m.sshClientConn
 	m.sshClientConn = sshClientConn
+	m.stateMu.Unlock()
+
+	// close current connection before change new connection.
+	if current != nil {
+		current.Close()
+	}
 
 	return nil
 }
 
 func (m *Mogura) Listen() error {
 	// Setup localListener (type net.Listener)
-	var err error
-	m.localListener, err = net.Listen("tcp", m.Config.LocalBindPort)
+	localListener, err := net.Listen("tcp", m.Config.LocalBindPort)
 	if err != nil {
 		return fmt.Errorf("local port binding failed: %v", err)
 	}
 
+	m.stateMu.Lock()
+	m.localListener = localListener
+	m.stateMu.Unlock()
+
 	return nil
 }
 
-func (m *Mogura) GoResolveCycle(interval int64) <-chan error {
+func (m *Mogura) GoResolveCycle(interval time.Duration) <-chan error {
 	errChan := make(chan error)
-	tick := time.Tick(time.Duration(interval) * time.Second)
+
 	go func() {
+		defer close(errChan)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
 		retryCount := 0
-		for _ = range tick {
+		for {
+			select {
+			case <-m.remoteDoneChan:
+				return
+			case <-ticker.C:
+			}
+
 			err := m.ResolveRemote()
-			if err != nil {
-				retryCount++
-				errChan <- err
-				if retryCount > WarningThresholdForRetrying {
-					errChan <- fmt.Errorf("resolve remote retry failed over %d times. it maybe will not recover it. stop mogura and check configuration", WarningThresholdForRetrying)
-				}
-				sshErr := m.ConnectSSH()
-				if sshErr != nil {
-					errChan <- fmt.Errorf("remote resolver failed and then ssh reconnect but failed: %v", sshErr)
-				} else {
-					// reconnected but can not notification way...
-				}
-			} else {
+			if err == nil {
 				retryCount = 0
+				continue
+			}
+
+			if errors.Is(err, errClosed) {
+				return
+			}
+
+			retryCount++
+			if !m.reportResolveErr(errChan, err) {
+				return
+			}
+
+			if retryCount > WarningThresholdForRetrying {
+				if !m.reportResolveErr(errChan, fmt.Errorf("resolve remote retry failed over %d times. it maybe will not recover it. stop mogura and check configuration", WarningThresholdForRetrying)) {
+					return
+				}
+			}
+
+			sshErr := m.ConnectSSH()
+			if sshErr != nil {
+				if errors.Is(sshErr, errClosed) {
+					return
+				}
+				if !m.reportResolveErr(errChan, fmt.Errorf("remote resolver failed and then ssh reconnect but failed: %v", sshErr)) {
+					return
+				}
 			}
 		}
 	}()
@@ -231,53 +361,88 @@ func (m *Mogura) GoResolveCycle(interval int64) <-chan error {
 	return errChan
 }
 
+// reportResolveErr reports err and tells whether the resolve cycle should keep
+// going. it gives up when mogura is closed, so that a reader that went away
+// can not block the cycle forever.
+func (m *Mogura) reportResolveErr(errChan chan<- error, err error) bool {
+	select {
+	case errChan <- err:
+		return true
+	case <-m.remoteDoneChan:
+		return false
+	}
+}
+
 func (m *Mogura) ResolveRemote() error {
-	err := m.Config.ForwardingTarget.Resolve(m.sshClientConn, m.Config.RemoteDNS)
+	client, err := m.client()
+	if err != nil {
+		return err
+	}
+
+	err = m.Config.ForwardingTarget.Resolve(client, m.Config.RemoteDNS)
 	if err != nil {
 		return err
 	}
 
 	detect := m.Config.ForwardingTarget.ResolvedTargetAndPort()
-	if detect != "" && detect != m.detectedRemote {
+	if previous, changed := m.setDetectedRemote(detect); changed {
 		// TODO logging
-		log.Printf("target changed: %s -> %s", m.detectedRemote, detect)
-		m.detectedRemote = detect
+		log.Printf("target changed: %s -> %s", previous, detect)
 	}
 
 	return nil
 }
 
 func (m *Mogura) CloseLocalConn() error {
-	var lErr error
-	if m.localListener != nil {
+	var localListener net.Listener
+
+	m.localCloseOnce.Do(func() {
 		if m.localDoneChan != nil {
 			close(m.localDoneChan)
 		}
-		lErr = m.localListener.Close()
+
+		m.stateMu.Lock()
+		localListener = m.localListener
+		m.localListener = nil
+		m.stateMu.Unlock()
+	})
+
+	if localListener == nil {
+		return nil
 	}
 
-	if lErr != nil {
-		return fmt.Errorf("failed close local listener: %v", lErr)
+	// closing is done outside the lock, it can block on the network.
+	if err := localListener.Close(); err != nil {
+		return fmt.Errorf("failed close local listener: %v", err)
 	}
 
-	m.localListener = nil
 	return nil
 }
 
 func (m *Mogura) CloseRemoteConn() error {
-	var rErr error
-	if m.sshClientConn != nil {
+	var sshClientConn *ssh.Client
+
+	m.remoteCloseOnce.Do(func() {
 		if m.remoteDoneChan != nil {
 			close(m.remoteDoneChan)
 		}
-		rErr = m.sshClientConn.Close()
+
+		m.stateMu.Lock()
+		// closed keeps a reconnect that is already dialing from reviving mogura.
+		m.closed = true
+		sshClientConn = m.sshClientConn
+		m.sshClientConn = nil
+		m.stateMu.Unlock()
+	})
+
+	if sshClientConn == nil {
+		return nil
 	}
 
-	if rErr != nil {
-		return fmt.Errorf("failed close ssh connection: %v", rErr)
+	if err := sshClientConn.Close(); err != nil {
+		return fmt.Errorf("failed close ssh connection: %v", err)
 	}
 
-	m.sshClientConn = nil
 	return nil
 }
 
