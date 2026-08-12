@@ -17,7 +17,6 @@ type Target struct {
 
 	resolvedTarget string
 	resolvedPort   string
-	ttl            int
 }
 
 func (t *Target) Validate() error {
@@ -90,7 +89,9 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 			t.resolvedPort = newPort
 		}
 
-		// TODO start goroutine that resolve again after ttl
+		// TODO resolve again on the TTL of the records instead of the fixed
+		// interval, and keep a shorter cycle of its own for noticing that the
+		// ssh connection died.
 		return nil
 	case "SRV":
 		client := NewDNSClient(conn, resolver)
@@ -125,7 +126,9 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 			t.resolvedPort = newPort
 		}
 
-		// TODO start goroutine that resolve again after ttl
+		// TODO resolve again on the TTL of the records instead of the fixed
+		// interval, and keep a shorter cycle of its own for noticing that the
+		// ssh connection died.
 		return nil
 	case "HOST-PORT":
 		fallthrough
