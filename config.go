@@ -2,25 +2,31 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
 	DEFAULT_FORWARDING_TIMEOUT = time.Second * 5
 )
 
-func GetMoguraDir() string {
-	return os.Getenv(ENV_HOME) + string(os.PathSeparator) + ".mogura"
+func GetMoguraDir() (string, error) {
+	return ResolveUserHome("~/.mogura")
 }
 
-func GetDefaultConfigPath() string {
-	return GetMoguraDir() + string(os.PathSeparator) + "config.yml"
+func GetDefaultConfigPath() (string, error) {
+	dir, err := GetMoguraDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "config.yml"), nil
 }
 
 type Config struct {
@@ -62,14 +68,8 @@ func LoadConfig(path string) (*Config, error) {
 	return c, nil
 }
 
-func LoadFromYamlFile(filePath string, p interface{}) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	yml, err := ioutil.ReadFile(filePath)
+func LoadFromYamlFile(filePath string, p any) error {
+	yml, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}

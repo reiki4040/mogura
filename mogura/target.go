@@ -22,23 +22,23 @@ type Target struct {
 
 func (t *Target) Validate() error {
 	if t.Target == "" {
-		return fmt.Errorf("target is required.")
+		return fmt.Errorf("target is required")
 	}
 
 	switch t.TargetType {
 	case "CNAME-SRV":
 		if t.TargetPort != 0 {
-			return fmt.Errorf("target port is specifeid, however target type CNAME-SRV.")
+			return fmt.Errorf("target port is specified, however target type is CNAME-SRV")
 		}
 	case "SRV":
 		if t.TargetPort != 0 {
-			return fmt.Errorf("target port is specifeid, however target type SRV.")
+			return fmt.Errorf("target port is specified, however target type is SRV")
 		}
 	case "HOST-IP":
 		fallthrough
 	default:
 		if t.TargetPort == 0 {
-			return fmt.Errorf("target port is require.")
+			return fmt.Errorf("target port is required")
 		}
 	}
 
@@ -73,7 +73,7 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 		}
 
 		if len(targets) == 0 {
-			return fmt.Errorf("%s answer is empty.", srvRecords[0].Target)
+			return fmt.Errorf("%s answer is empty", srvRecords[0].Target)
 		}
 
 		// TODO if priority are same, then shuffle
@@ -110,7 +110,7 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 		}
 
 		if len(targets) == 0 {
-			return fmt.Errorf("%s answer is empty.", srvs[0].Target)
+			return fmt.Errorf("%s answer is empty", srvs[0].Target)
 		}
 
 		// TODO if priority are same, then shuffle

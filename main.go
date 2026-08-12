@@ -29,8 +29,6 @@ options:
       WARNING: the connection is vulnerable to man-in-the-middle attacks.
 `
 
-	ENV_HOME = "HOME"
-
 	DEFAULT_KNOWN_HOSTS_PATH = "~/.ssh/known_hosts"
 )
 
@@ -50,8 +48,6 @@ func init() {
 	flag.BoolVar(&showVer, "v", false, "show version")
 	flag.StringVar(&optConfigFilePath, "config", "", "config file path. default: ~/.mogura/config.yml")
 	flag.BoolVar(&optInsecureIgnoreHostKey, "insecure-ignore-host-key", false, "skip bastion host key verification. WARNING: vulnerable to man-in-the-middle attacks.")
-
-	flag.Parse()
 }
 
 func usage() {
@@ -63,6 +59,10 @@ func showVersion() {
 }
 
 func main() {
+	// parsing belongs here, not in init. the test binary has flags of its own,
+	// and parsing them in init makes every test of this package fail.
+	flag.Parse()
+
 	if showUsage {
 		usage()
 		os.Exit(0)
@@ -74,9 +74,15 @@ func main() {
 	}
 
 	// default or specified option
-	confPath := GetDefaultConfigPath()
-	if optConfigFilePath != "" {
-		confPath = optConfigFilePath
+	// the default path is only resolved when it is needed, so that mogura runs
+	// with -config even where the home directory can not be determined.
+	confPath := optConfigFilePath
+	if confPath == "" {
+		defaultPath, err := GetDefaultConfigPath()
+		if err != nil {
+			log.Fatalf("can not resolve the default config file path: %v", err)
+		}
+		confPath = defaultPath
 	}
 
 	c, err := LoadConfig(confPath)

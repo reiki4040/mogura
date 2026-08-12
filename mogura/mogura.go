@@ -501,7 +501,7 @@ func forward(ctx context.Context, localConn, sshConn net.Conn, timeout time.Dura
 	// forwarding IO error
 	case <-done:
 		// currently it can not know finished forwarding. so it is process here when only happened errors in forwarding.
-		errChan <- fmt.Errorf("got forwarding errors before timeout.")
+		errChan <- fmt.Errorf("got forwarding errors before timeout")
 	// timeout
 	case <-ctx.Done():
 		// basically proceed here with timeout, because currently it can not know that finished forwarding IO.
