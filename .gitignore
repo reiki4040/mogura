@@ -3,3 +3,4 @@
 bin/*
 config.yml
 dist/
+local-env/known_hosts

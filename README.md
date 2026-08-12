@@ -35,6 +35,13 @@ brew upgrade mogura
 
 default load config file path is `~/.mogura/config.yml`. if you want specify other file, then use `-config` option.
 
+| option | context |
+| ------ | ------- |
+| -config | tunnel configuration file path. default `~/.mogura/config.yml` |
+| -insecure-ignore-host-key | skip bastion host key verification. **vulnerable to man-in-the-middle attacks** |
+| -v | show version |
+| -h | show usage |
+
 ### sample settings
 
 example for EC2 or RDS etc...
@@ -79,6 +86,39 @@ tunnels:
 
 if you use ssh private key with passphrase, then use `MOGURA_PASSPHRASE` environment variable.
 
+### host key verification
+
+mogura verifies the bastion host key with `~/.ssh/known_hosts`, and does not connect to
+a host that is not recorded there. if you have never connected to the bastion with `ssh`,
+then record its host key first.
+
+```
+# default port
+ssh-keyscan your.bastion.example.com >> ~/.ssh/known_hosts
+
+# other port
+ssh-keyscan -p 2222 your.bastion.example.com >> ~/.ssh/known_hosts
+```
+
+use `known_hosts_path` if you keep the host key in another file.
+
+if the bastion host key was changed for a known reason, then remove the recorded key
+and record it again.
+
+```
+ssh-keygen -R your.bastion.example.com
+```
+
+you can skip the verification with `insecure_ignore_host_key` in the config file,
+or with the `-insecure-ignore-host-key` option.
+**it makes the connection vulnerable to man-in-the-middle attacks**. an attacker on the
+network path can impersonate the bastion and read everything that goes through the
+tunnels, so use it only when you understand the risk.
+
+```
+mogura -config config.yml -insecure-ignore-host-key
+```
+
 ### detail propeties
 
 bastion_ssh_config
@@ -91,6 +131,8 @@ port | bastion port | 22 | 22
 user | bastion user | ec2-user | Required
 key_path | bastion ssh key path | ~/.ssh/id_rsa | "~/.ssh/id_rsa"
 remote_dns | remote DNS if you use SRV Record in Tunnel settings | 10.0.0.2 | Required if use SRV
+known_hosts_path | known_hosts file for bastion host key verification | ~/.ssh/known_hosts | "~/.ssh/known_hosts"
+insecure_ignore_host_key | skip bastion host key verification. **vulnerable to man-in-the-middle attacks** | true | false
 
 tunnels:
 

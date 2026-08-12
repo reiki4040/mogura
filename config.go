@@ -35,6 +35,11 @@ type SSHConfig struct {
 	User      string `yaml:"user"`
 	KeyPath   string `yaml:"key_path"`
 	RemoteDNS string `yaml:"remote_dns"`
+
+	KnownHostsPath string `yaml:"known_hosts_path"`
+	// InsecureIgnoreHostKey disables bastion host key verification.
+	// it makes the connection vulnerable to man-in-the-middle attacks.
+	InsecureIgnoreHostKey bool `yaml:"insecure_ignore_host_key"`
 }
 
 type TunnelConfig struct {

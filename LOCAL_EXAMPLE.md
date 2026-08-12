@@ -34,12 +34,21 @@ build mogura (out put binary to bin/mogura)
 make mac-build
 ```
 
+record the test bastion host key. mogura verifies it and does not connect to
+unknown hosts. it writes `local-env/known_hosts` that `config.yml.sample` points to
+```
+make gen-test-known-hosts
+```
+
 launch mogura with local test configure
 ```
 bin/mogura -config config.yml.sample
 
 # mogura log...
 ```
+
+note: the ssh server container generates a new host key on every rebuild.
+run `make gen-test-known-hosts` again if mogura reports a host key mismatch.
 
 launch other terminal and http request to web-server via mogura
 ```

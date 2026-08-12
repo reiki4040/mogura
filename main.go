@@ -25,9 +25,13 @@ options:
   -h: show this usage.
 
   -config: specified tunnel configuration file. default ~/.mogura/config.yml
+  -insecure-ignore-host-key: skip bastion host key verification.
+      WARNING: the connection is vulnerable to man-in-the-middle attacks.
 `
 
 	ENV_HOME = "HOME"
+
+	DEFAULT_KNOWN_HOSTS_PATH = "~/.ssh/known_hosts"
 )
 
 var (
@@ -35,15 +39,17 @@ var (
 	version  string
 	revision string
 
-	showVer           bool
-	showUsage         bool
-	optConfigFilePath string
+	showVer                  bool
+	showUsage                bool
+	optConfigFilePath        string
+	optInsecureIgnoreHostKey bool
 )
 
 func init() {
 	flag.BoolVar(&showUsage, "h", false, "show usage.")
 	flag.BoolVar(&showVer, "v", false, "show version")
 	flag.StringVar(&optConfigFilePath, "config", "", "config file path. default: ~/.mogura/config.yml")
+	flag.BoolVar(&optInsecureIgnoreHostKey, "insecure-ignore-host-key", false, "skip bastion host key verification. WARNING: vulnerable to man-in-the-middle attacks.")
 
 	flag.Parse()
 }
@@ -108,6 +114,23 @@ func main() {
 		log.Fatalf("can not resolved user home path in %s: %v", basKeyPath, err)
 	}
 
+	// default known_hosts path "~/.ssh/known_hosts"
+	basKnownHostsPath := c.Bastion.KnownHostsPath
+	if basKnownHostsPath == "" {
+		basKnownHostsPath = DEFAULT_KNOWN_HOSTS_PATH
+	}
+
+	rKnownHostsPath, err := ResolveUserHome(basKnownHostsPath)
+	if err != nil {
+		log.Fatalf("can not resolved user home path in %s: %v", basKnownHostsPath, err)
+	}
+
+	// the option only turns verification off, it never turns it back on.
+	insecureIgnoreHostKey := c.Bastion.InsecureIgnoreHostKey || optInsecureIgnoreHostKey
+	if insecureIgnoreHostKey {
+		log.Printf("WARN host key verification is disabled for %s. the connection is vulnerable to man-in-the-middle attacks.", bastionHostPort)
+	}
+
 	moguraMap := make(map[string]*mogura.Mogura, len(c.Tunnels))
 	openedTunnelCount := 0
 	portMap := make(map[int]struct{}, len(c.Tunnels))
@@ -169,6 +192,9 @@ func main() {
 			LocalBindPort:    localHostPort,
 			RemoteDNS:        c.Bastion.RemoteDNS,
 			ForwardingTarget: target,
+
+			KnownHostsPath:        rKnownHostsPath,
+			InsecureIgnoreHostKey: insecureIgnoreHostKey,
 		}
 
 		forwardingTarget := t.Target

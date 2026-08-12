@@ -42,6 +42,10 @@ build-test-docker-image:
 launch-test-servers: build-test-docker-image
 	docker compose -f local-env/docker-compose.yml up
 
+.PHONY: gen-test-known-hosts
+gen-test-known-hosts:
+	ssh-keyscan -p 2222 -H localhost > local-env/known_hosts
+
 .PHONY: launch-test-mogura
-launch-test-mogura:
+launch-test-mogura: gen-test-known-hosts
 	bin/mogura -config config.yml.sample

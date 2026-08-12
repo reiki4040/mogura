@@ -27,6 +27,9 @@ type MoguraConfig struct {
 	RemoteDNS        string
 	LocalBindPort    string
 	ForwardingTarget Target
+
+	KnownHostsPath        string
+	InsecureIgnoreHostKey bool
 }
 
 // error is ssh connection and local listener error.
@@ -161,7 +164,14 @@ func (m *Mogura) ConnectSSH() error {
 	defer m.sshMutex.Unlock()
 
 	passphrase := os.Getenv(ENV_MOGURA_PASSPHRASE)
-	clientConfig, err := GenSSHClientConfig(m.Config.BastionHostPort, m.Config.Username, m.Config.KeyPath, passphrase)
+	clientConfig, err := GenSSHClientConfig(SSHClientOption{
+		HostPort:              m.Config.BastionHostPort,
+		Username:              m.Config.Username,
+		KeyPath:               m.Config.KeyPath,
+		Passphrase:            passphrase,
+		KnownHostsPath:        m.Config.KnownHostsPath,
+		InsecureIgnoreHostKey: m.Config.InsecureIgnoreHostKey,
+	})
 	if err != nil {
 		return fmt.Errorf("ssh config error: %v", err)
 	}
