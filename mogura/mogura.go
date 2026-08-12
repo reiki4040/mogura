@@ -466,53 +466,60 @@ func (m *Mogura) Close() error {
 }
 
 func forward(ctx context.Context, localConn, sshConn net.Conn, timeout time.Duration, errChan chan<- error) {
-	wg := &sync.WaitGroup{}
 	ctx, cancelFunc := context.WithTimeout(ctx, timeout)
+	defer cancelFunc()
+
+	wg := &sync.WaitGroup{}
 
 	// Copy localConn.Reader to sshConn.Writer
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		_, err := io.Copy(sshConn, localConn)
-		if err != nil {
-			errChan <- fmt.Errorf("local -> remote transfer failed: %v", err)
-		}
-		wg.Done()
-	}(wg)
+	wg.Go(func() {
+		copyConn(sshConn, localConn, "local -> remote", errChan)
+	})
 
 	// Copy sshConn.Reader to localConn.Writer
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		_, err := io.Copy(localConn, sshConn)
-		if err != nil {
-			errChan <- fmt.Errorf("remote -> local transfer failed: %v", err)
-		}
-		wg.Done()
-	}(wg)
+	wg.Go(func() {
+		copyConn(localConn, sshConn, "remote -> local", errChan)
+	})
 
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
-		cancelFunc()
 		close(done)
 	}()
 
 	// waiting for forwarding... and close connections.
 	select {
-	// forwarding IO error
 	case <-done:
-		// currently it can not know finished forwarding. so it is process here when only happened errors in forwarding.
-		errChan <- fmt.Errorf("got forwarding errors before timeout")
-	// timeout
+		// both directions finished, the client is done with the connection.
+		// that is how forwarding ends, there is nothing to report.
 	case <-ctx.Done():
-		// basically proceed here with timeout, because currently it can not know that finished forwarding IO.
+		// the timeout cuts the connection even while it is in use, it is how
+		// mogura gives file descriptors back.
+		errChan <- fmt.Errorf("forwarding timeout %v expired before the transfer finished. set a longer forwarding_timeout for a long lived connection", timeout)
 	}
 
-	err := localConn.Close()
-	if err != nil {
-		errChan <- fmt.Errorf("forwarding end however failed close local conn: %v", err)
+	closeConn(localConn, "local", errChan)
+	closeConn(sshConn, "ssh", errChan)
+}
+
+// copyConn copies src into dst and reports only a real failure. mogura closes
+// both sides when forwarding ends, so the copy that is still running reports
+// that, and it is not something a user can act on.
+func copyConn(dst, src net.Conn, direction string, errChan chan<- error) {
+	if _, err := io.Copy(dst, src); err != nil && !isConnClosed(err) {
+		errChan <- fmt.Errorf("%s transfer failed: %v", direction, err)
 	}
-	err = sshConn.Close()
-	if err != nil {
-		errChan <- fmt.Errorf("forwarding end, however failed close ssh conn: %v", err)
+}
+
+func closeConn(conn net.Conn, name string, errChan chan<- error) {
+	if err := conn.Close(); err != nil && !isConnClosed(err) {
+		errChan <- fmt.Errorf("forwarding end, however failed close %s conn: %v", name, err)
 	}
+}
+
+// isConnClosed tells whether err only says that the connection is already gone.
+func isConnClosed(err error) bool {
+	return errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, io.EOF) ||
+		errors.Is(err, io.ErrClosedPipe)
 }
