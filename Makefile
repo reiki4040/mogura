@@ -48,10 +48,6 @@ win-build:
 	ENABLED_CGO=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME)
 	zip -j bin/$(NAME)-$(VERSION)-windows-amd64.zip bin/$(NAME)
 
-.PHONY: docker-build
-docker-build:
-	docker build -t $(NAME):$(VERSION) .
-
 .PHONY: test-goreleaser
 test-goreleaser:
 	goreleaser --snapshot --skip=publish --clean

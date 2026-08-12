@@ -28,12 +28,12 @@ make test-e2e
 
 build ssh server image
 ```
-docker build -f local-env/Dockerfile.ssh-server -t mogura-bastion:0.1.0 .
+make build-test-docker-image
 ```
 
-launch other terminal and launch servers with docker-compose
+launch other terminal and launch servers with docker compose
 ```
-docker-compose -f local-env/docker-compose.yml up
+docker compose -f local-env/docker-compose.yml up
 
 # launch ssh server...
 ```
