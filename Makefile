@@ -8,6 +8,28 @@ LDFLAGS := -ldflags="-X \"main.version=$(VERSION)\" -X \"main.hash=$(HASH)\" -X 
 .PHONY: build
 build: linux-build mac-build win-build
 
+.PHONY: native-build
+native-build:
+	go build $(LDFLAGS) -o bin/$(NAME)
+
+.PHONY: test
+test:
+	go test -race -cover ./...
+
+.PHONY: test-e2e
+test-e2e: native-build build-test-docker-image
+	./local-env/e2e.sh
+
+.PHONY: test-all
+test-all: test test-e2e
+
+.PHONY: vet
+vet:
+	go vet ./...
+
+.PHONY: check
+check: vet test
+
 .PHONY: linux-build
 linux-build:
 	export GO111MODULE=on

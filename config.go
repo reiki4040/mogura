@@ -24,7 +24,7 @@ func GetDefaultConfigPath() string {
 }
 
 type Config struct {
-	Bastion SSHConfig      `bastion_ssh_config`
+	Bastion SSHConfig      `yaml:"bastion_ssh_config"`
 	Tunnels []TunnelConfig `yaml:"tunnels"`
 }
 

@@ -146,3 +146,23 @@ target_type | DNS type | SRV, CNAME-SRV | Required if set target is SRV record o
 forwarding_timeout ** | forwarding timeout | 5s, 1m |  Optional, forwarding timeout, default 5s. must set longer time if keep forwarding over 5s(default). ex. gRPC stream.
 
 ** forwarding uses file descriptor. if set long time and many request then use many file descriptor and got too many open files error. please increase ulimit or shorter forwarding timeout.
+
+## development
+
+### test
+
+```
+make test        # unit test. docker is not required
+make vet         # go vet
+make check       # vet + test
+make test-e2e    # end to end test with the local test bastion. docker is required
+make test-all    # test + test-e2e
+```
+
+`make test-e2e` launches the containers of `local-env/docker-compose.yml`, then checks that
+mogura tunnels to the nginx container and that host key verification accepts and rejects
+the connection as expected. it removes the containers when it finishes.
+see [LOCAL_EXAMPLE.md](LOCAL_EXAMPLE.md) for the same steps by hand.
+
+note: the test bastion image is built from `local-env/Dockerfile.ssh-server.aarch64`,
+so `make test-e2e` needs an arm64 host. `make test` runs anywhere.
