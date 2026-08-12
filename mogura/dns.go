@@ -8,6 +8,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const dnsTimeout = 2 * time.Second
+
 func NewDNSClient(conn *ssh.Client, remoteDNS string) *DNSClient {
 	return &DNSClient{
 		sshClientConn: conn,
@@ -20,7 +22,7 @@ type DNSClient struct {
 	remoteDNS     string
 }
 
-func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
+func (d *DNSClient) Query(domain string, qtype uint16) (*dns.Msg, error) {
 	co := new(dns.Conn)
 	var err error
 	if co.Conn, err = d.sshClientConn.Dial("tcp4", d.remoteDNS); err != nil {
@@ -28,33 +30,10 @@ func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 	}
 	defer co.Close()
 
-	m := &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Authoritative:     false,
-			AuthenticatedData: false,
-			CheckingDisabled:  false,
-			RecursionDesired:  true,
-			Opcode:            dns.OpcodeQuery,
-		},
-		Question: make([]dns.Question, 1),
-	}
+	co.SetReadDeadline(time.Now().Add(dnsTimeout))
+	co.SetWriteDeadline(time.Now().Add(dnsTimeout))
 
-	qType := dns.TypeA
-	switch queryType {
-	case "SRV":
-		qType = dns.TypeSRV
-	}
-
-	m.Question[0] = dns.Question{
-		Name:   dns.Fqdn(domain),
-		Qtype:  qType,
-		Qclass: uint16(dns.ClassINET),
-	}
-
-	co.SetReadDeadline(time.Now().Add(2 * time.Second))
-	co.SetWriteDeadline(time.Now().Add(2 * time.Second))
-
-	if err := co.WriteMsg(m); err != nil {
+	if err := co.WriteMsg(newQueryMsg(domain, qtype)); err != nil {
 		return nil, fmt.Errorf("dns write error: %v", err)
 	}
 
@@ -63,50 +42,72 @@ func (d *DNSClient) Query(domain, queryType string) (*dns.Msg, error) {
 		return nil, fmt.Errorf("dns read error: %v", err)
 	}
 
+	// without this, a name that does not exist and a broken resolver both end
+	// up as an empty answer, and the tunnel reports the same thing for both.
+	if dnsMsg.Rcode != dns.RcodeSuccess {
+		return nil, fmt.Errorf("dns query %s failed: %s", domain, dns.RcodeToString[dnsMsg.Rcode])
+	}
+
 	return dnsMsg, nil
 }
 
+// newQueryMsg builds the query message for domain.
+func newQueryMsg(domain string, qtype uint16) *dns.Msg {
+	return &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Authoritative:     false,
+			AuthenticatedData: false,
+			CheckingDisabled:  false,
+			RecursionDesired:  true,
+			Opcode:            dns.OpcodeQuery,
+		},
+		Question: []dns.Question{
+			{
+				Name:   dns.Fqdn(domain),
+				Qtype:  qtype,
+				Qclass: uint16(dns.ClassINET),
+			},
+		},
+	}
+}
+
+// answersOf returns the records of type T in the answer section. an answer
+// carries records that were not asked for, the CNAME of a chain for instance,
+// and those must not be read as the requested type.
+func answersOf[T dns.RR](msg *dns.Msg) []T {
+	records := make([]T, 0, len(msg.Answer))
+	for _, ans := range msg.Answer {
+		if record, ok := ans.(T); ok {
+			records = append(records, record)
+		}
+	}
+
+	return records
+}
+
 func (d *DNSClient) QueryA(domain string) ([]*dns.A, error) {
-	dnsMsg, err := d.Query(domain, "A")
+	dnsMsg, err := d.Query(domain, dns.TypeA)
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]*dns.A, 0, len(dnsMsg.Answer))
-	for _, ans := range dnsMsg.Answer {
-		a := ans.(*dns.A)
-		records = append(records, a)
-	}
-
-	return records, nil
+	return answersOf[*dns.A](dnsMsg), nil
 }
 
 func (d *DNSClient) QueryCNAME(domain string) ([]*dns.CNAME, error) {
-	dnsMsg, err := d.Query(domain, "CNAME")
+	dnsMsg, err := d.Query(domain, dns.TypeCNAME)
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]*dns.CNAME, 0, len(dnsMsg.Answer))
-	for _, ans := range dnsMsg.Answer {
-		a := ans.(*dns.CNAME)
-		records = append(records, a)
-	}
-
-	return records, nil
+	return answersOf[*dns.CNAME](dnsMsg), nil
 }
 
 func (d *DNSClient) QuerySRV(domain string) ([]*dns.SRV, error) {
-	dnsMsg, err := d.Query(domain, "SRV")
+	dnsMsg, err := d.Query(domain, dns.TypeSRV)
 	if err != nil {
 		return nil, err
 	}
 
-	records := make([]*dns.SRV, 0, len(dnsMsg.Answer))
-	for _, ans := range dnsMsg.Answer {
-		srv := ans.(*dns.SRV)
-		records = append(records, srv)
-	}
-
-	return records, nil
+	return answersOf[*dns.SRV](dnsMsg), nil
 }

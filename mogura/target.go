@@ -60,6 +60,13 @@ func (t *Target) Resolve(conn *ssh.Client, resolver string) error {
 		// resolve CNAME -> SRV -> A
 		// detect SRV, A record by myself.
 		srvRecords, err := client.QuerySRV(cnames[0].Target)
+		if err != nil {
+			return fmt.Errorf("failed %s SRV query to remote DNS: %v", cnames[0].Target, err)
+		}
+		if len(srvRecords) == 0 {
+			return fmt.Errorf("%s answer is empty", cnames[0].Target)
+		}
+
 		targets, err := client.QueryA(srvRecords[0].Target)
 		if err != nil {
 			return fmt.Errorf("failed %s A query to remote DNS: %v", srvRecords[0].Target, err)
